@@ -3,7 +3,7 @@
 
 <div align="center">
 
-<img src="docs/images/marsicano_full_multiphysics_depth.jpg" alt="PyDebrisFlow2D full-multiphysics Marsicano simulation" width="920">
+<img src="docs/images/PyDebrisFlow2D.png" alt="PyDebrisFlow2D full-multiphysics Marsicano simulation" width="920">
 
 <br>
 
