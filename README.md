@@ -55,9 +55,6 @@ The distributed configurations request CUDA first. If a compatible NVIDIA GPU, C
 
 > The figures above are generated from the verification and Marsicano workflows described in the accompanying scientific paper. They illustrate model behavior and numerical consistency; they do not constitute certification for operational or safety-critical use.
 
-> [!IMPORTANT]
-> **Research software — not an operational warning system.**  
-> PyDebrisFlow2D is intended for scientific research, numerical experimentation, education, and method development. Its outputs must not be used as the sole basis for emergency management, public-safety decisions, engineering certification, land-use authorization, hazard warnings, or any decision involving risk to people, property, infrastructure, or the environment.
 
 ## Main features
 
