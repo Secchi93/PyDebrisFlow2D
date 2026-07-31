@@ -1,0 +1,148 @@
+# General verification configuration used by test.py.
+# The numerical tests construct synthetic domains internally; the grid paths
+# below provide complete SolverConfig fields for repository-level validation.
+
+compute:
+  backend: cuda
+  cpu_threads: 0
+  cuda_device: 0
+  cuda_block_x: 16
+  cuda_block_y: 16
+  cuda_threads_1d: 256
+  cuda_allow_fallback: true
+  cuda_sync_each_step: false
+
+grid:
+  dem_path: "../data/w46090_s10_Marsicano_UTM33_5m.asc"
+  zip_member: null
+  cache_path: "../cache/test_dem_cache.npz"
+  target_dx: 5.0
+  clip_enabled: false
+  xmin: 0.0
+  xmax: 100.0
+  ymin: 0.0
+  ymax: 100.0
+  min_valid_fraction: 0.5
+  nodata_barrier_m: 100.0
+
+numerics:
+  g: 9.81
+  cfl: 0.20
+  dt_max: 0.05
+  t_end: 1.0
+  output_dt: 0.1
+  h_dry: 1.0e-4
+  space_order: 2
+  time_order: 2
+  limiter: mc
+  flux: hllc
+  hllc_fallback_hll: true
+  hllc_dry_factor: 5.0
+  hllc_max_froude: 8.0
+  hybrid_depth_rel_jump: 0.75
+  max_step_retries: 10
+  positivity_tolerance: 1.0e-10
+  speed_cap_ms: 0.0
+  bc_left: reflective
+  bc_right: reflective
+  bc_bottom: reflective
+  bc_top: reflective
+
+material:
+  rho_fluid: 1000.0
+  rho_solid: 2650.0
+  initial_solid_fraction: 0.55
+  initial_coarse_fraction: 0.40
+  initial_upper_solid_fraction: 0.50
+  max_solid_fraction: 0.68
+  mu_fine: 0.010
+  mu_coarse: 0.100
+  xi_fine: 200.0
+  xi_coarse: 200.0
+  yield_N0_pa: 1000.0
+  grain_diameter_fine_m: 0.002
+  grain_diameter_coarse_m: 0.050
+  kinematic_viscosity_m2s: 1.0e-6
+
+friction:
+  interactive: false
+  region_1_mu: 0.010
+  region_1_xi: 200.0
+  region_2_mu: 0.100
+  region_2_xi: 200.0
+  regions: []
+
+release:
+  enabled: true
+  mode: ellipse
+  interactive_polygon: false
+  polygon: []
+  volume_m3: 200.0
+  center_x: 50.0
+  center_y: 50.0
+  radius_x: 10.0
+  radius_y: 10.0
+  solid_fraction: 0.55
+  coarse_fraction: 0.40
+  initial_speed_ms: 0.0
+  direction_deg: 0.0
+
+erosion:
+  enabled: false
+  model: excess_shear
+  erodible_depth_m: 1.0
+  bed_porosity: 0.40
+  bed_coarse_fraction: 0.45
+  critical_shear_pa: 1000.0
+  excess_shear_rate_ms: 0.010
+  excess_shear_exponent: 1.0
+  max_erosion_rate_ms: 0.05
+  velocity_erosion_coefficient: 1.0e-3
+  potential_depth_per_kpa: 0.10
+  erosion_velocity_ms: 0.025
+  entrainment_velocity_fraction: 0.0
+  update_bed: true
+
+deposition:
+  enabled: false
+  critical_shear_pa: 500.0
+  hindered_settling_exponent: 4.65
+  max_rate_ms: 0.10
+  minimum_mobile_depth_m: 0.005
+
+segregation:
+  enabled: false
+  segregation_length_m: 0.010
+  max_segregation_speed_ms: 0.20
+  remix_diffusivity_m2s: 1.0e-4
+  min_layer_thickness_m: 0.01
+
+output:
+  out_dir: "../outputs/tests"
+  save_snapshots: false
+  make_png: true
+  make_gif: false
+  gif_fps: 10
+  progress_every_steps: 50
+  use_hillshade: false
+  hillshade_alpha: 0.0
+  save_setup_preview: false
+
+# Options read directly by test.py. The command always executes the complete
+# verification workflow. CUDA is requested first; the same resolution,
+# time-step, and limiter suite runs on the CPU when CUDA is unavailable.
+tests:
+  figure_output_dir: "../outputs/verification_figures"
+  limiter: superbee
+  limiters: [minmod, mc, vanleer, superbee]
+  nx: [100, 200, 400, 800, 1200, 2400]
+  dt: [0.1, 0.05, 0.025, 0.0125, 0.00625]
+  temporal_nx: 100
+  limiter_profile_nx: 2400
+  xmin: -500.0
+  xmax: 500.0
+  dam_x: 0.0
+  h0: 10.0
+  t_end: 15.0
+  monitor_x: 0.0
+  cfl: 0.25

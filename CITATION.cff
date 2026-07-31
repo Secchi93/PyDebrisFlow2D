@@ -1,0 +1,34 @@
+cff-version: 1.2.0
+message: >-
+  If you use PyDebrisFlow2D in scientific work, please cite the exact
+  software release used in your analysis. When an associated peer-reviewed
+  publication is available, please cite both the software and the article.
+title: >-
+  PyDebrisFlow2D: A Conservative Python Multiphysics Solver for
+  Variable-Density Debris Flows with Voellmy Resistance, Bed Exchange,
+  and Grain-Size Segregation
+type: software
+authors:
+  - family-names: Secchi
+    given-names: Mauricio
+version: 1.1.0
+date-released: 2026-07-27
+license: Apache-2.0
+abstract: >-
+  PyDebrisFlow2D is a modular finite-volume research solver for
+  depth-averaged debris-flow propagation over digital elevation models. It
+  includes hydrostatic reconstruction, HLL/HLLC fluxes, MUSCL reconstruction,
+  SSPRK time integration, Voellmy-type basal resistance, variable-density
+  mixture bookkeeping, bed exchange, grain-size segregation, and automatic
+  CUDA-to-CPU fallback.
+keywords:
+  - debris flow
+  - shallow-water equations
+  - finite-volume method
+  - Voellmy rheology
+  - hydrostatic reconstruction
+  - HLLC
+  - MUSCL
+  - CUDA
+  - numerical modelling
+  - geohazards

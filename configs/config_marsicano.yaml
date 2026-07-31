@@ -1,0 +1,156 @@
+# Marsicano debris-flow simulation on the prepared 5 m TINITALY DEM.
+# Relative paths are resolved from this configuration file.
+
+compute:
+  # Use the CUDA backend when available. The solver can fall back to CPU when
+  # the CUDA runtime is not accessible.
+  backend: cuda
+  cpu_threads: 0
+  cuda_device: 0
+  cuda_block_x: 16
+  cuda_block_y: 16
+  cuda_threads_1d: 256
+  cuda_allow_fallback: true
+  cuda_sync_each_step: false
+
+grid:
+  # The distributed ASCII grid is ready for simulation. The reusable DEM
+  # preparation utility is available in utils/prepare_dem.py.
+  dem_path: "../data/w46090_s10_Marsicano_UTM33_5m.asc"
+  zip_member: null
+  cache_path: "../cache/dem_cache_marsicano/dem_marsicano_ascii_dx5.npz"
+  target_dx: 5.0
+
+  # The prepared ASCII grid already covers the Marsicano study extent.
+  clip_enabled: true
+  xmin: 403000.0
+  xmax: 409000.0
+  ymin: 4625500.0
+  ymax: 4629500.0
+  min_valid_fraction: 0.5
+  nodata_barrier_m: 100.0
+
+numerics:
+  g: 9.81
+  cfl: 0.25
+  dt_max: 0.1
+  t_end: 275.0
+  output_dt: 10.0
+  h_dry: 1.0e-3
+  space_order: 2
+  time_order: 2
+  limiter: mc
+  flux: hllc
+
+  # Activate a robust local HLL treatment near wet/dry fronts or strongly
+  # discontinuous states when the HLLC star state is not admissible.
+  hllc_fallback_hll: true
+  hllc_dry_factor: 10.0
+  hllc_max_froude: 8.0
+  hybrid_depth_rel_jump: 0.75
+  max_step_retries: 10
+  positivity_tolerance: 1.0e-10
+  speed_cap_ms: 80.0
+
+  bc_left: outflow
+  bc_right: outflow
+  bc_bottom: outflow
+  bc_top: outflow
+
+material:
+  # Equal fluid and solid densities represent a uniform bulk material in this
+  # case-study setup.
+  rho_fluid: 2500.0
+  rho_solid: 2500.0
+  initial_solid_fraction: 0.0
+  initial_coarse_fraction: 0.0
+  initial_upper_solid_fraction: 0.0
+  max_solid_fraction: 0.68
+
+  # Equal fine and coarse resistance parameters remove composition dependence.
+  mu_fine: 0.17
+  mu_coarse: 0.17
+  xi_fine: 150.0
+  xi_coarse: 150.0
+
+  yield_N0_pa: 0.0
+  grain_diameter_fine_m: 0.002
+  grain_diameter_coarse_m: 0.05
+  kinematic_viscosity_m2s: 1.0e-6
+
+friction:
+  # Uniform resistance is used throughout the computational domain.
+  interactive: false
+  region_1_mu: 0.17
+  region_1_xi: 150.0
+  region_2_mu: 0.17
+  region_2_xi: 150.0
+  regions: []
+
+release:
+  enabled: true
+  mode: polygon
+  polygon:
+    - [405551.6950280073, 4628148.722233832]
+    - [405399.9539249785, 4627996.981130803]
+    - [405399.9539249785, 4627725.111654543]
+    - [405728.7263148742, 4627390.016718688]
+    - [405987.95069921506, 4627257.243253537]
+    - [406063.82125072944, 4627611.305827271]
+    - [406076.4663426485, 4627889.497849491]
+    - [405937.3703315388, 4628015.948768682]
+    - [405747.6939527528, 4627813.627297977]
+  volume_m3: 1200000.0
+  center_x: 0.0
+  center_y: 0.0
+  radius_x: 400.0
+  radius_y: 500.0
+  solid_fraction: 0.0
+  coarse_fraction: 0.0
+  initial_speed_ms: 0.0
+  direction_deg: 0.0
+  interactive_polygon: false
+
+erosion:
+  # Bed entrainment is disabled for this propagation-only case.
+  enabled: false
+  model: excess_shear
+  erodible_depth_m: 0.0
+  bed_porosity: 0.4
+  bed_coarse_fraction: 0.45
+  critical_shear_pa: 2000.0
+  excess_shear_rate_ms: 1.0e-7
+  excess_shear_exponent: 1.0
+  max_erosion_rate_ms: 0.05
+  velocity_erosion_coefficient: 0.001
+  potential_depth_per_kpa: 0.1
+  erosion_velocity_ms: 0.025
+  entrainment_velocity_fraction: 0.0
+  update_bed: false
+
+deposition:
+  # Flow arrest is controlled by basal resistance in this setup.
+  enabled: false
+  critical_shear_pa: 500.0
+  hindered_settling_exponent: 4.65
+  max_rate_ms: 0.1
+  minimum_mobile_depth_m: 0.005
+
+segregation:
+  # The material is treated as compositionally uniform.
+  enabled: false
+  segregation_length_m: 0.01
+  max_segregation_speed_ms: 0.2
+  remix_diffusivity_m2s: 0.0001
+  min_layer_thickness_m: 0.01
+
+output:
+  out_dir: "../outputs/Marsicano"
+  save_snapshots: true
+  make_png: true
+  make_gif: true
+  gif_fps: 12
+  progress_every_steps: 50
+  use_hillshade: true
+  hillshade_alpha: 0.28
+  save_setup_preview: true
