@@ -34,7 +34,7 @@ The distributed configurations request CUDA first. If a compatible NVIDIA GPU, C
 <sub>Digital elevation model and prescribed release geometry.</sub>
 </td>
 <td width="50%" align="center">
-<img src="docs/images/marsicano_full_multiphysics_depth.jpg  alt="Upper-minus-lower coarse fraction in the Marsicano simulation" width="100%"><br>
+<img src="docs/images/marsicano_full_multiphysics_depth.jpg"  alt="Upper-minus-lower coarse fraction in the Marsicano simulation" width="100%"><br>
 <strong>Grain-size segregation</strong><br>
 <sub>Upper-minus-lower coarse fraction in the nominal second-order solution.</sub>
 </td>
