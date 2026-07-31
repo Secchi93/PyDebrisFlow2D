@@ -78,14 +78,6 @@ The distributed configurations request CUDA first. If a compatible NVIDIA GPU, C
 - NPZ snapshots, final maps, GIF animations, material budgets, and JSON diagnostics.
 - A unified verification workflow contained entirely in `test.py`.
 
-## Model scope and limitations
-
-PyDebrisFlow2D uses a depth-averaged, single-velocity mixture formulation. It is not a full three-dimensional multiphase model and does not solve separate momentum equations for the fluid, fine-solid, and coarse-solid phases.
-
-Simulation quality depends on the governing assumptions, DEM accuracy, release geometry, initial and boundary conditions, rheological parameters, source-term parameterizations, numerical resolution, calibration data, and observation uncertainty. Numerical stability alone does not demonstrate that a simulated event is physically correct.
-
-Users must independently assess the code, configuration, parameter ranges, conservation diagnostics, mesh and time-step sensitivity, calibration strategy, and suitability of the model for each application.
-
 ## Repository structure
 
 ```text
@@ -122,8 +114,6 @@ PyDebrisFlow2D/
 ├── cache/                           # generated DEM caches
 └── outputs/                         # simulation and verification results
 ```
-
-The complete physical, numerical, figure-generation, Ritter, resolution, time-step, and limiter verification routines are now consolidated in `test.py`. No separate verification modules or auxiliary test scripts are required.
 
 Generated `cache/` and `outputs/` directories may be absent before the first execution.
 
@@ -557,9 +547,7 @@ The directory contains:
 - eight main comparison figures in PNG and PDF formats;
 - `backend_verification_summary.json`.
 
-A successful run confirms that the implemented checks passed for the tested software environment and configuration. It does not certify the software for every dataset, operating system, physical scenario, parameter range, or safety-critical application.
-
-## Python API
+A successful run confirms that the implemented checks passed for the tested software environment and configuration. ## Python API
 
 The scientific components can be imported directly:
 
@@ -602,15 +590,12 @@ The implementation includes hydrostatic reconstruction, HLL/HLLC approximate Rie
 
 ## Citation
 
-Citation metadata are provided in `CITATION.cff`.
-
 When using PyDebrisFlow2D in scientific work:
 
 1. cite the exact software release used in the analysis;
 2. archive the associated configuration and input data when possible;
 3. cite the related peer-reviewed scientific article when available.
 
-Keep the version and release date in `CITATION.cff` synchronized with the version exposed by `pydebrisflow.__version__` before publishing a new release.
 
 ## License
 
@@ -620,15 +605,13 @@ The license permits use, modification, and redistribution, including commercial 
 
 ## Research software, safety, and limitation-of-liability disclaimer
 
-PyDebrisFlow2D is research software intended for scientific research, numerical experimentation, education, and method development. It is **not** a certified engineering tool, operational forecasting system, emergency-management platform, hazard-warning system, early-warning system, or other safety-critical system.
+PyDebrisFlow2D is research software intended for scientific research, numerical experimentation, education, and method development.
 
-Simulation outputs depend on model assumptions, input data, digital elevation model quality, release geometry, initial and boundary conditions, material and rheological parameters, source-term parameterizations, calibration, numerical resolution, time-step selection, software dependencies, hardware, and user-defined configurations. Numerical stability, successful execution, or satisfaction of the included verification tests does not establish that a simulated scenario is physically correct or suitable for a particular real-world application.
+Simulation outputs depend on model assumptions, input data, digital elevation model quality, release geometry, initial and boundary conditions, material and rheological parameters, source-term parameterizations, calibration, numerical resolution, time-step selection, software dependencies, hardware, and user-defined configurations. 
 
-Results must be independently reviewed and validated by appropriately qualified professionals before being used in engineering design, hazard assessment, territorial or land-use planning, emergency management, regulatory procedures, or decisions affecting people, property, infrastructure, or the environment. The software and its outputs must not be used as the sole basis for safety-critical or operational decisions.
+Results must be independently reviewed and validated by appropriately qualified professionals before being used in engineering design, hazard assessment, territorial or land-use planning, emergency management, regulatory procedures, or decisions affecting people, property, infrastructure, or the environment. 
 
 PyDebrisFlow2D is provided on an **“AS IS”** and **“AS AVAILABLE”** basis, without warranties or conditions of any kind, whether express, implied, statutory, or otherwise, including, without limitation, warranties of accuracy, reliability, completeness, merchantability, fitness for a particular purpose, non-infringement, or regulatory compliance, to the maximum extent permitted by applicable law.
-
-The authors and contributors do not guarantee that the software or its outputs are accurate, complete, error-free, suitable for operational deployment, or capable of reproducing any specific natural event. Results may be affected by incomplete or inaccurate data, uncertain initial conditions and material properties, model simplifications, numerical approximations, calibration and validation limitations, hardware or dependency differences, programming errors, and unexpected runtime behavior.
 
 Users are solely responsible for determining whether the software is suitable for their intended purpose, selecting and verifying input data and parameters, reviewing and validating all results, obtaining any required professional or regulatory approvals, and complying with applicable laws, professional standards, institutional procedures, and safety requirements.
 
