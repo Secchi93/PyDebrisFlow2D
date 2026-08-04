@@ -107,7 +107,7 @@ PyDebrisFlow2D/
 │   └── simulation.py               # simulation workflow and backend dispatch
 ├── docs/
 │   └── images/                     # README figures
-├── data/                            # local DEM files (not distributed)
+├── data/                            # local DEM files
 ├── cache/                           # generated DEM caches
 └── outputs/                         # simulation and verification results
 ```
