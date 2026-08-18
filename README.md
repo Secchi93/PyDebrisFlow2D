@@ -1,5 +1,22 @@
 # PyDebrisFlow2D
 
+<div align="center">
+
+<img src="docs/images/marsicano_full_multiphysics_depth.jpg" alt="PyDebrisFlow2D full-multiphysics Marsicano simulation" width="920">
+
+<br>
+
+**A conservative Python solver for variable-density debris flows, bed exchange, and grain-size segregation**
+
+<br>
+
+![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
+![License](https://img.shields.io/badge/License-Apache%202.0-D22128?logo=apache&logoColor=white)
+![CPU](https://img.shields.io/badge/Backend-CPU-555555)
+![CUDA](https://img.shields.io/badge/Backend-CUDA-76B900?logo=nvidia&logoColor=white)
+![Research software](https://img.shields.io/badge/Status-Research%20Software-7B2CBF)
+
+
 **PyDebrisFlow2D** is an open-source Python finite-volume research solver for two-dimensional, depth-averaged debris-flow propagation on raster digital elevation models (DEMs). The implementation combines hydrostatic reconstruction, HLLC transport with local HLL fallback, optional MUSCL reconstruction, first- or second-order time integration, Voellmy basal resistance, variable-density constituent bookkeeping, conservative bed exchange, and a reduced two-layer grain-size segregation model.
 
 The repository includes the solver, a unified verification suite, the Marsicano real-topography experiments used in the accompanying manuscript, and a standalone CPU/CUDA scaling benchmark.
