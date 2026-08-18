@@ -1,5 +1,6 @@
 # PyDebrisFlow2D
 
+
 <div align="center">
 
 <img src="docs/images/marsicano_full_multiphysics_depth.jpg" alt="PyDebrisFlow2D full-multiphysics Marsicano simulation" width="920">
@@ -15,6 +16,44 @@
 ![CPU](https://img.shields.io/badge/Backend-CPU-555555)
 ![CUDA](https://img.shields.io/badge/Backend-CUDA-76B900?logo=nvidia&logoColor=white)
 ![Research software](https://img.shields.io/badge/Status-Research%20Software-7B2CBF)
+
+</div>
+
+PyDebrisFlow2D is a modular finite-volume research solver for simulating depth-averaged debris-flow propagation over digital elevation models (DEMs). The code combines shallow-layer flow dynamics, Voellmy-type basal resistance, variable-density mixture bookkeeping, conservative bed exchange, grain-size segregation, and CPU/CUDA execution in a single Python project.
+
+The distributed configurations request CUDA first. If a compatible NVIDIA GPU, CUDA driver, or CUDA runtime is unavailable, the solver and the complete verification workflow automatically continue on the CPU without requiring a different launch command.
+
+
+## Visual overview
+
+<table>
+<tr>
+<td width="50%" align="center">
+<img src="docs/images/marsicano_release_geometry.jpg" alt="Marsicano computational domain and release geometry" width="100%"><br>
+<strong>Computational setup</strong><br>
+<sub>Digital elevation model and prescribed release geometry.</sub>
+</td>
+<td width="50%" align="center">
+<img src="docs/images/marsicano_grain_segregation.jpg" alt="Upper-minus-lower coarse fraction in the Marsicano simulation" width="100%"><br>
+<strong>Grain-size segregation</strong><br>
+<sub>Upper-minus-lower coarse fraction in the nominal second-order solution.</sub>
+</td>
+</tr>
+<tr>
+<td width="50%" align="center">
+<img src="docs/images/verification_summary.png" alt="Normalized verification metrics" width="100%"><br>
+<strong>Controlled verification suite</strong><br>
+<sub>Normalized metrics for the implemented physical and numerical checks.</sub>
+</td>
+<td width="50%" align="center">
+<img src="docs/images/ritter_depth_benchmark.png" alt="Ritter dam-break depth benchmark" width="100%"><br>
+<strong>Ritter benchmark</strong><br>
+<sub>First- and nominal second-order depth profiles across the resolution sequence.</sub>
+</td>
+</tr>
+</table>
+
+> The figures above are generated from the verification and Marsicano workflows described in the accompanying scientific paper. They illustrate model behavior and numerical consistency; they do not constitute certification for operational or safety-critical use.
 
 
 **PyDebrisFlow2D** is an open-source Python finite-volume research solver for two-dimensional, depth-averaged debris-flow propagation on raster digital elevation models (DEMs). The implementation combines hydrostatic reconstruction, HLLC transport with local HLL fallback, optional MUSCL reconstruction, first- or second-order time integration, Voellmy basal resistance, variable-density constituent bookkeeping, conservative bed exchange, and a reduced two-layer grain-size segregation model.
