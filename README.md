@@ -1,4 +1,4 @@
-# PyDebrisFlow2D
+# **PyDebrisFlow2D**
 
 
 <div align="center">
@@ -18,11 +18,6 @@
 ![Research software](https://img.shields.io/badge/Status-Research%20Software-7B2CBF)
 
 </div>
-
-PyDebrisFlow2D is a modular finite-volume research solver for simulating depth-averaged debris-flow propagation over digital elevation models (DEMs). The code combines shallow-layer flow dynamics, Voellmy-type basal resistance, variable-density mixture bookkeeping, conservative bed exchange, grain-size segregation, and CPU/CUDA execution in a single Python project.
-
-The distributed configurations request CUDA first. If a compatible NVIDIA GPU, CUDA driver, or CUDA runtime is unavailable, the solver and the complete verification workflow automatically continue on the CPU without requiring a different launch command.
-
 
 **PyDebrisFlow2D** is an open-source Python finite-volume research solver for two-dimensional, depth-averaged debris-flow propagation on raster digital elevation models (DEMs). The implementation combines hydrostatic reconstruction, HLLC transport with local HLL fallback, optional MUSCL reconstruction, first- or second-order time integration, Voellmy basal resistance, variable-density constituent bookkeeping, conservative bed exchange, and a reduced two-layer grain-size segregation model.
 
