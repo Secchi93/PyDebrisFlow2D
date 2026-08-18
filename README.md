@@ -311,17 +311,8 @@ Depending on the configuration, a run may create:
 
 Do not interpret maps alone. Review conservation residuals, material budgets, fallback counts, retries, wet/dry behavior, mesh/time-step sensitivity, and the physical assumptions relevant to the application.
 
-## Scientific interpretation of the 20/15/10/8/6.5/5 m study
 
-The grid-sensitivity experiment should be described as a **real-topography resolution-sensitivity test**, not as proof of asymptotic convergence to an exact field solution. The recommended sequence is **20, 15, 10, 8, 6.5, and 5 m**, all generated from the same native terrain dataset and run with the same propagation-only physical configuration.
-
-1. The 20, 15, 10, 8, and 6.5 m cases are controlled coarsenings of the native 5 m DEM and intentionally discard progressively less terrain detail.
-2. The 5 m calculation uses the finest independent terrain information available in the distributed dataset and is therefore the reference for the cross-grid field metrics.
-3. Refinement should be assessed with several diagnostics together, including depth and speed RMSE over the union of wet supports, wet-support IoU, runout-distance discrepancy, wet area, volume, and extrema. Non-monotonic behavior in local maxima or shallow margins must be reported rather than hidden.
-4. A progressive reduction of field RMSE and runout discrepancy toward the 5 m calculation supports increasing solution consistency over the terrain-informed resolution range, but it must not be described as proof that the 5 m solution is grid independent.
-5. A genuine physical-resolution study below 5 m requires independently finer topography and/or an adaptive or unstructured representation supported by finer terrain data. Interpolating the existing 5 m DEM alone would create additional numerical cells without adding new geomorphic information.
-
-### Ritter first vs second order
+## Ritter first vs second order
 
 Run the existing verification workflow:
 
@@ -338,7 +329,7 @@ outputs/verification_figures/figure_9_ritter_accuracy_vs_cost.png
 
 The table pairs O1 and O2 at identical resolution and reports the O2/O1 runtime ratio together with the O1/O2 reduction in analytical Ritter error.
 
-### Marsicano first vs second order
+## Marsicano first vs second order
 
 Run the existing Marsicano workflow, preferably from a clean timing run:
 
@@ -356,7 +347,7 @@ outputs/Marsicano_Ablation/marsicano_order_cost_ratio.png
 
 These quantities are interpreted as numerical-order sensitivity and computational cost; the O1/O2 field differences are not described as observational error.
 
-### CPU vs CUDA
+## CPU vs CUDA
 
 Run the standalone hardware test:
 
