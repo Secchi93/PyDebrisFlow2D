@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from typing import Any, Dict, List
 
 import numpy as np
@@ -33,6 +34,7 @@ from .physics import (
     composition_fields,
     material_budget,
     terrain_geometry,
+    terrain_velocity_components,
 )
 
 def run_solver_cpu(cfg: SolverConfig) -> Dict[str, Any]:
@@ -73,6 +75,12 @@ def run_solver_cpu(cfg: SolverConfig) -> Dict[str, Any]:
     apply_boundary(U, zb, active, cfg.numerics, ng)
     # JIT warmup on real shapes.
     transport_rhs(U, zb, active, cfg, ws, dx, dy, order=1, flux_name="hll")
+
+    # Timed interval excludes DEM I/O and JIT warm-up so that repeated runs are comparable.
+    wall_start = time.perf_counter()
+    workspace_arrays = [ws.P, ws.sx, ws.sy, ws.fx, ws.fy, ws.cxl, ws.cxr, ws.cyl, ws.cyr, ws.rhs, ws.fallback_count]
+    persistent_arrays = [U, zb, active, bed_fine, bed_coarse, peak_tau, mu_override, xi_override]
+    cpu_array_memory_mib_estimate = sum(a.nbytes for a in workspace_arrays + persistent_arrays) / (1024.0 ** 2)
 
     cell_area = dx * dy
     budget0 = material_budget(Uc, bed_fine, bed_coarse, cell_area, cfg)
@@ -123,6 +131,9 @@ def run_solver_cpu(cfg: SolverConfig) -> Dict[str, Any]:
             _, _, cosbeta = terrain_geometry(zcore, dx, dy)
             b2 = apply_erosion_deposition(Ucore, zcore, bed_f_trial, bed_c_trial, peak_trial, cosbeta, 0.5 * dt, cfg, mu_override, xi_override)
             s2 = apply_segregation(Ucore, 0.5 * dt, cfg)
+            # Bed exchange may have modified z_b. Refresh the terrain geometry before
+            # the terminal friction half-step so resistance uses the current slope.
+            _, _, cosbeta = terrain_geometry(zcore, dx, dy)
             apply_voellmy_friction(Ucore, cosbeta, 0.5 * dt, cfg, mu_override, xi_override)
             apply_speed_cap(Ucore, cfg)
             if not check_admissible(Utrial, core, cfg.numerics.positivity_tolerance):
@@ -172,9 +183,14 @@ def run_solver_cpu(cfg: SolverConfig) -> Dict[str, Any]:
     fine_residual = budget1["total_fine_m3"] - budget0["total_fine_m3"] - boundary_fine
     coarse_residual = budget1["total_coarse_m3"] - budget0["total_coarse_m3"] - boundary_coarse
     f = composition_fields(Uc, cfg)
+    dzdx_final, dzdy_final, _ = terrain_geometry(zb[core], dx, dy)
+    v_down, v_cross = terrain_velocity_components(f["u"], f["v"], dzdx_final, dzdy_final)
+    elapsed_wall_s = time.perf_counter() - wall_start
     metrics = {
         "backend": "cpu",
         "cpu_threads": cpu_threads,
+        "elapsed_wall_s": float(elapsed_wall_s),
+        "cpu_array_memory_mib_estimate": float(cpu_array_memory_mib_estimate),
         "t_final_s": t,
         "steps": step,
         "dx_m": dx,
@@ -186,6 +202,10 @@ def run_solver_cpu(cfg: SolverConfig) -> Dict[str, Any]:
         "release_volume_m3": float(cfg.release.volume_m3),
         "h_max_m": float(np.max(f["h"])),
         "speed_max_ms": float(np.max(f["speed"])),
+        "velocity_x_abs_max_ms": float(np.max(np.abs(f["u"]))),
+        "velocity_y_abs_max_ms": float(np.max(np.abs(f["v"]))),
+        "velocity_downslope_abs_max_ms": float(np.max(np.abs(v_down))),
+        "velocity_crossslope_abs_max_ms": float(np.max(np.abs(v_cross))),
         "rho_min_wet_kgm3": float(np.min(f["rho"][f["wet"]])) if np.any(f["wet"]) else cfg.material.rho_fluid,
         "rho_max_wet_kgm3": float(np.max(f["rho"][f["wet"]])) if np.any(f["wet"]) else cfg.material.rho_fluid,
         "bed_elevation_change_min_m": float(np.min(zb[core] - z_initial)),

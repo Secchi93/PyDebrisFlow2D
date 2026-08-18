@@ -18,6 +18,34 @@ def terrain_geometry(zb_core: np.ndarray, dx: float, dy: float) -> Tuple[np.ndar
     return dzdx, dzdy, cosbeta
 
 
+def terrain_velocity_components(
+    u: np.ndarray,
+    v: np.ndarray,
+    dzdx: np.ndarray,
+    dzdy: np.ndarray,
+    gradient_epsilon: float = 1.0e-12,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Project Cartesian velocity onto local downslope/cross-slope directions.
+
+    This is a diagnostic transform only: the governing equations continue to
+    evolve the Cartesian momentum components Mx and My.  On locally flat cells
+    the topographic frame is undefined, so both diagnostic components are set
+    to zero.
+    """
+    grad = np.hypot(dzdx, dzdy)
+    valid = grad > gradient_epsilon
+    ex = np.zeros_like(grad, dtype=np.float64)
+    ey = np.zeros_like(grad, dtype=np.float64)
+    # Unit vector of steepest descent in the horizontal plane.
+    ex[valid] = -dzdx[valid] / grad[valid]
+    ey[valid] = -dzdy[valid] / grad[valid]
+    v_down = u * ex + v * ey
+    v_cross = -u * ey + v * ex
+    v_down[~valid] = 0.0
+    v_cross[~valid] = 0.0
+    return v_down, v_cross
+
+
 def composition_fields(
     Uc: np.ndarray,
     cfg: SolverConfig,

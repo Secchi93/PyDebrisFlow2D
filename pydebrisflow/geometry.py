@@ -13,6 +13,20 @@ from .config import SolverConfig
 # -----------------------------------------------------------------------------
 # Interactive geometry and hillshade visualization.
 # -----------------------------------------------------------------------------
+
+
+def _apply_publication_plot_style() -> None:
+    """Use manuscript-scale typography for every solver-generated map/preview."""
+    import matplotlib as mpl
+    mpl.rcParams.update({
+        "font.size": 13.0,
+        "axes.titlesize": 14.0,
+        "axes.labelsize": 13.5,
+        "xtick.labelsize": 12.0,
+        "ytick.labelsize": 12.0,
+        "legend.fontsize": 11.5,
+        "lines.markersize": 6.5,
+    })
 def _hillshade(zb: np.ndarray, dx: float, dy: float) -> np.ndarray:
     """Return a north-up analytical hillshade in the range [0, 255]."""
     z = np.asarray(zb, dtype=np.float64)
@@ -53,6 +67,7 @@ def _show_base_map(
     elevation_colorbar: bool = True,
 ):
     import matplotlib.pyplot as plt
+    _apply_publication_plot_style()
 
     extent = _map_extent(x, y, dx, dy)
     valid = np.isfinite(zb)
@@ -78,12 +93,12 @@ def _show_base_map(
     ax.annotate(
         "N", xy=(0.965, 0.965), xytext=(0.965, 0.855),
         xycoords="axes fraction", textcoords="axes fraction",
-        ha="center", va="center", fontsize=10, fontweight="bold",
+        ha="center", va="center", fontsize=13, fontweight="bold",
         arrowprops=dict(arrowstyle="-|>", lw=1.4, color="black"),
     )
     ax.text(
         0.01, 0.99, "Nord in alto", transform=ax.transAxes,
-        ha="left", va="top", fontsize=8,
+        ha="left", va="top", fontsize=11,
         bbox=dict(facecolor="white", alpha=0.75, edgecolor="0.6"),
     )
     fig.tight_layout()
@@ -107,10 +122,10 @@ def click_polygon(
         title + "\nLeft click: add vertex | right click: undo | Enter: confirm | Esc: cancel",
         hillshade_alpha=hillshade_alpha,
     )
-    line, = ax.plot([], [], "o-", linewidth=1.8, markersize=4.5, color="tab:red")
+    line, = ax.plot([], [], "o-", linewidth=2.0, markersize=6.5, color="tab:red")
     status = ax.text(
         0.01, 0.01, "Add at least 3 vertices.", transform=ax.transAxes,
-        ha="left", va="bottom", fontsize=9,
+        ha="left", va="bottom", fontsize=11.5,
         bbox=dict(facecolor="white", alpha=0.88, edgecolor="0.5"),
     )
     state: Dict[str, Any] = {"points": [], "confirmed": False, "cancelled": False}
@@ -262,7 +277,7 @@ def save_setup_preview(
     os.makedirs(out_dir, exist_ok=True)
     path = os.path.join(out_dir, "interactive_setup.png")
     fig.tight_layout()
-    fig.savefig(path, dpi=180)
+    fig.savefig(path, dpi=300, bbox_inches="tight")
     plt.close(fig)
     geometry = {
         "friction": {"regions": cfg.friction.regions},

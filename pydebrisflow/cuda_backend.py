@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import time
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -33,7 +34,14 @@ from .constants import (
 from .dem import load_or_build_dem
 from .geometry import prepare_interactive_geometry, save_setup_preview
 from .outputs import make_depth_gif, save_maps, save_snapshot
-from .physics import build_release, composition_fields, ferguson_church_settling_velocity, material_budget
+from .physics import (
+    build_release,
+    composition_fields,
+    ferguson_church_settling_velocity,
+    material_budget,
+    terrain_geometry,
+    terrain_velocity_components,
+)
 
 
 # -----------------------------------------------------------------------------
@@ -1345,12 +1353,6 @@ def _apply_sources_second_half(U, zb, bed_fine, bed_coarse, peak_tau, cosbeta, m
         s.remix_diffusivity_m2s, s.min_layer_thickness_m,
     )
     upward = float(ws.segregation_budget.copy_to_host()[0])
-    _voellmy_friction[grid_core, block](
-        U, cosbeta, mu_override, xi_override, ng, nx_core, ny_core, dt,
-        n.g, n.h_dry, m.rho_fluid, m.rho_solid, m.mu_fine, m.mu_coarse,
-        m.xi_fine, m.xi_coarse, m.yield_N0_pa,
-    )
-    _speed_cap[grid_core, block](U, ng, nx_core, ny_core, n.speed_cap_ms, m.rho_fluid, m.rho_solid, n.h_dry)
     return source, upward
 
 
@@ -1463,8 +1465,12 @@ def run_solver_cuda(cfg: SolverConfig, device_name: Optional[str] = None) -> Dic
     arrays = [d_U, d_Utrial, d_U1, d_U2, d_zb, d_zbtrial, d_active, d_bed_fine, d_bed_fine_trial,
               d_bed_coarse, d_bed_coarse_trial, d_peak, d_peak_trial, d_mu, d_xi, d_cosbeta,
               P, sx, sy, fx, fy, cxl, cxr, cyl, cyr, rhs]
-    print(f"[CUDA] grid={nx}x{ny}, block={block[0]}x{block[1]}, allocated≈{_device_memory_mib(arrays):.1f} MiB")
+    cuda_allocated_mib_estimate = _device_memory_mib(arrays)
+    print(f"[CUDA] grid={nx}x{ny}, block={block[0]}x{block[1]}, allocated≈{cuda_allocated_mib_estimate:.1f} MiB")
 
+    # Timed interval starts after allocation/setup. CUDA synchronization at the end
+    # ensures queued device work is included in the reported wall time.
+    wall_start = time.perf_counter()
     cell_area = dx * dy
     budget0 = material_budget(Uc, bed_fine, bed_coarse, cell_area, cfg)
     t = 0.0
@@ -1515,6 +1521,19 @@ def run_solver_cuda(cfg: SolverConfig, device_name: Optional[str] = None) -> Dic
                 final_state, d_zbtrial, d_bed_fine_trial, d_bed_coarse_trial, d_peak_trial,
                 d_cosbeta, d_mu, d_xi, ws, cfg, 0.5 * dt, grid_core, block, ng, nx, ny,
             )
+            # Erosion/deposition can modify z_b. Refresh the local slope before the
+            # terminal Voellmy half-step so CPU and CUDA use the current bed geometry.
+            _terrain_cosbeta[grid_core, block](d_zbtrial, d_cosbeta, ng, nx, ny, dx, dy)
+            _voellmy_friction[grid_core, block](
+                final_state, d_cosbeta, d_mu, d_xi, ng, nx, ny, 0.5 * dt,
+                cfg.numerics.g, cfg.numerics.h_dry, cfg.material.rho_fluid, cfg.material.rho_solid,
+                cfg.material.mu_fine, cfg.material.mu_coarse, cfg.material.xi_fine, cfg.material.xi_coarse,
+                cfg.material.yield_N0_pa,
+            )
+            _speed_cap[grid_core, block](
+                final_state, ng, nx, ny, cfg.numerics.speed_cap_ms,
+                cfg.material.rho_fluid, cfg.material.rho_solid, cfg.numerics.h_dry,
+            )
             if not _is_admissible_device(final_state, ws, grid, block, ng, cfg.numerics.positivity_tolerance):
                 dt *= 0.5
                 retries_total += 1
@@ -1555,6 +1574,8 @@ def run_solver_cuda(cfg: SolverConfig, device_name: Optional[str] = None) -> Dic
                 f"rho=[{stats['rho_min']:.1f},{stats['rho_max']:.1f}] retries={retries_total}"
             )
 
+    cuda.synchronize()
+    elapsed_wall_s = time.perf_counter() - wall_start
     Uc, zb_core = _host_core(d_U, d_zb, ng, ny, nx)
     bed_fine = d_bed_fine.copy_to_host()
     bed_coarse = d_bed_coarse.copy_to_host()
@@ -1578,12 +1599,15 @@ def run_solver_cuda(cfg: SolverConfig, device_name: Optional[str] = None) -> Dic
     coarse_residual = budget1["total_coarse_m3"] - budget0["total_coarse_m3"] - boundary_coarse
     fields = composition_fields(Uc, cfg)
     wet = fields["wet"]
+    dzdx_final, dzdy_final, _ = terrain_geometry(zb_core, dx, dy)
+    v_down, v_cross = terrain_velocity_components(fields["u"], fields["v"], dzdx_final, dzdy_final)
     metrics = {
         "backend": "cuda",
         "cuda_device": device_label,
         "cuda_block": [block[0], block[1]],
         "cuda_threads_1d": threads_1d,
-        "cuda_allocated_mib_estimate": _device_memory_mib(arrays),
+        "elapsed_wall_s": float(elapsed_wall_s),
+        "cuda_allocated_mib_estimate": float(cuda_allocated_mib_estimate),
         "t_final_s": t,
         "steps": step,
         "dx_m": dx,
@@ -1595,6 +1619,10 @@ def run_solver_cuda(cfg: SolverConfig, device_name: Optional[str] = None) -> Dic
         "release_volume_m3": cfg.release.volume_m3,
         "h_max_m": float(np.max(fields["h"])),
         "speed_max_ms": float(np.max(fields["speed"])),
+        "velocity_x_abs_max_ms": float(np.max(np.abs(fields["u"]))),
+        "velocity_y_abs_max_ms": float(np.max(np.abs(fields["v"]))),
+        "velocity_downslope_abs_max_ms": float(np.max(np.abs(v_down))),
+        "velocity_crossslope_abs_max_ms": float(np.max(np.abs(v_cross))),
         "rho_min_wet_kgm3": float(np.min(fields["rho"][wet])) if np.any(wet) else cfg.material.rho_fluid,
         "rho_max_wet_kgm3": float(np.max(fields["rho"][wet])) if np.any(wet) else cfg.material.rho_fluid,
         "bed_elevation_change_min_m": float(np.min(zb_core - z_initial)),

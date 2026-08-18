@@ -60,7 +60,8 @@ from .physics import (
     ferguson_church_settling_velocity,
     material_budget,
     terrain_geometry,
+    terrain_velocity_components,
 )
 from .simulation import run_solver
 
-__version__ = "1.1.1"
+__version__ = "1.1.4"
