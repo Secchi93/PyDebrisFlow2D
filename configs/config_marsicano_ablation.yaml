@@ -166,7 +166,7 @@ output:
 
 
 # Reviewer-requested real-topography grid-sensitivity experiment.
-# This deliberately coarsens the native 5 m DEM to 10 and 20 m and compares
+# This deliberately coarsens the native 20.0, 15.0, 10.0, 8.0, 6.5, 5.0 and compares
 # those solutions with the finest physically supported 5 m solution. No grid
 # below 5 m is permitted because interpolation would not add terrain information.
 grid_sensitivity:
