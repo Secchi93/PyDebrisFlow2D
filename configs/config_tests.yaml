@@ -129,8 +129,10 @@ output:
   save_setup_preview: false
 
 # Options read directly by test.py. The command always executes the complete
-# verification workflow. CUDA is requested first; the same resolution,
-# time-step, and limiter suite runs on the CPU when CUDA is unavailable.
+# verification workflow. Ritter O1/O2 runs also record solver wall time,
+# time-per-step and analytical-error/cost trade-offs. CUDA is requested first;
+# the same resolution, time-step, and limiter suite runs on the CPU when CUDA
+# is unavailable.
 tests:
   figure_output_dir: "../outputs/verification_figures"
   limiter: superbee

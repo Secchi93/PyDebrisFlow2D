@@ -9,9 +9,9 @@
 #
 # produces 8 first-order + 8 second-order simulations and continuously updates:
 #   outputs/Marsicano_Ablation/marsicano_ablation_results.csv
-# Each run also receives the same six final PNG maps produced by a normal
-# simulation: depth, speed, density, solid fraction, coarse fraction and
-# upper-minus-lower coarse-fraction segregation.
+# Each run also receives the normal final PNG maps produced by a normal
+# simulation: depth, speed, Cartesian x/y velocity, local downslope/cross-slope
+# velocity, density, solid fraction, coarse fraction and segregation.
 
 compute:
   backend: cuda
@@ -163,6 +163,20 @@ output:
   use_hillshade: true
   hillshade_alpha: 0.28
   save_setup_preview: false
+
+
+# Reviewer-requested real-topography grid-sensitivity experiment.
+# This deliberately coarsens the native 5 m DEM to 10 and 20 m and compares
+# those solutions with the finest physically supported 5 m solution. No grid
+# below 5 m is permitted because interpolation would not add terrain information.
+grid_sensitivity:
+  base_config: "config_marsicano.yaml"
+  output_root: "../outputs/Marsicano_Ablation/grid_sensitivity"
+  spacings_m: [20.0, 15.0, 10.0, 8.0, 6.5, 5.0]
+  order: 2
+  t_end_s: 275.0
+  wet_threshold_m: 0.01
+  make_final_png: true
 
 # This top-level section is consumed by marsicano_ablation.py and is ignored
 # by the normal solver configuration loader.
