@@ -321,26 +321,106 @@ The grid-sensitivity experiment should be described as a **real-topography resol
 4. A progressive reduction of field RMSE and runout discrepancy toward the 5 m calculation supports increasing solution consistency over the terrain-informed resolution range, but it must not be described as proof that the 5 m solution is grid independent.
 5. A genuine physical-resolution study below 5 m requires independently finer topography and/or an adaptive or unstructured representation supported by finer terrain data. Interpolating the existing 5 m DEM alone would create additional numerical cells without adding new geomorphic information.
 
-## Reproducibility
+### Ritter first vs second order
 
-Precomputed per-run JSON/NPZ result files are intentionally not required as part of the distributed repository. The published experiments are intended to be reproduced by executing the supplied code with the documented configurations and input DEM. Generated metrics and state files are created locally during those runs.
+Run the existing verification workflow:
 
-For every reproduced or newly published simulation, retain:
+```bash
+python test.py
+```
 
-- the exact code version/commit;
-- input and resolved YAML files;
-- original/prepared DEM and CRS information;
-- release and friction geometry;
-- rheological and source-term parameters;
-- selected backend and hardware information;
-- Python/dependency versions;
-- conservation and fallback diagnostics;
-- grid/time-step/order sensitivity outputs.
+In addition to the original verification products, `test.py` now records solver wall time and time per step for each Ritter resolution and writes:
+
+```text
+outputs/verification_figures/ritter_order_tradeoff.csv
+outputs/verification_figures/figure_9_ritter_accuracy_vs_cost.png
+```
+
+The table pairs O1 and O2 at identical resolution and reports the O2/O1 runtime ratio together with the O1/O2 reduction in analytical Ritter error.
+
+### Marsicano first vs second order
+
+Run the existing Marsicano workflow, preferably from a clean timing run:
+
+```bash
+python marsicano_ablation.py --restart
+```
+
+The normal `marsicano_ablation_results.csv` now contains solver wall time, time per step, and O1/O2 cost ratios. The workflow additionally writes:
+
+```text
+outputs/Marsicano_Ablation/marsicano_order_tradeoff.csv
+outputs/Marsicano_Ablation/marsicano_order_runtime.png
+outputs/Marsicano_Ablation/marsicano_order_cost_ratio.png
+```
+
+These quantities are interpreted as numerical-order sensitivity and computational cost; the O1/O2 field differences are not described as observational error.
+
+### CPU vs CUDA
+
+Run the standalone hardware test:
+
+```bash
+python tests/test_cpu_cuda.py --dx 20 10 5 --t-end 20 --order 2
+```
+
+Its outputs are isolated under `outputs/CPU_CUDA_Benchmark/`.
+
+
+## Reproducible scientific use
+
+For each published or shared simulation, retain:
+
+- the exact PyDebrisFlow2D release or commit;
+- the complete input and resolved YAML configurations;
+- the original and prepared DEMs;
+- the DEM coordinate reference system and processing history;
+- release and friction geometries;
+- initial and boundary conditions;
+- rheological and multiphysics parameters;
+- selected CPU or CUDA backend and device information;
+- Python and dependency versions;
+- relevant random seeds;
+- conservation diagnostics;
+- mesh and time-step sensitivity results;
+- verification results;
+- any local code modifications.
+
+The implementation includes hydrostatic reconstruction, HLL/HLLC approximate Riemann solvers, MUSCL reconstruction, SSPRK time integration, Voellmy-type basal resistance, Ferguson–Church settling, and a conservative two-layer representation for segregation and remixing. Cite the numerical, physical, and case-study references appropriate to the specific application.
+
+## Citation
+
+Citation metadata are provided in `CITATION.cff`.
+
+When using PyDebrisFlow2D in scientific work:
+
+1. cite the exact software release used in the analysis;
+2. archive the associated configuration and input data when possible;
+3. cite the related peer-reviewed scientific article when available.
+
+Keep the version and release date in `CITATION.cff` synchronized with the version exposed by `pydebrisflow.__version__` before publishing a new release.
 
 ## License
 
-PyDebrisFlow2D is distributed under the Apache License 2.0. See `LICENSE` for the complete terms.
+PyDebrisFlow2D is distributed under the Apache License, Version 2.0. See the `LICENSE` file for the complete terms.
 
-## Disclaimer
+The license permits use, modification, and redistribution, including commercial use, subject to its conditions. Redistributed copies must preserve the applicable copyright, license, attribution, and notice information.
 
-PyDebrisFlow2D is provided as research software without a guarantee that a particular simulation is physically correct, complete, field validated, or suitable for engineering or operational decision-making. Users are responsible for calibration, uncertainty assessment, independent validation, professional review, and compliance with applicable standards and regulations.
+## Research software, safety, and limitation-of-liability disclaimer
+
+PyDebrisFlow2D is research software intended for scientific research, numerical experimentation, education, and method development. It is **not** a certified engineering tool, operational forecasting system, emergency-management platform, hazard-warning system, early-warning system, or other safety-critical system.
+
+Simulation outputs depend on model assumptions, input data, digital elevation model quality, release geometry, initial and boundary conditions, material and rheological parameters, source-term parameterizations, calibration, numerical resolution, time-step selection, software dependencies, hardware, and user-defined configurations. Numerical stability, successful execution, or satisfaction of the included verification tests does not establish that a simulated scenario is physically correct or suitable for a particular real-world application.
+
+Results must be independently reviewed and validated by appropriately qualified professionals before being used in engineering design, hazard assessment, territorial or land-use planning, emergency management, regulatory procedures, or decisions affecting people, property, infrastructure, or the environment. The software and its outputs must not be used as the sole basis for safety-critical or operational decisions.
+
+PyDebrisFlow2D is provided on an **“AS IS”** and **“AS AVAILABLE”** basis, without warranties or conditions of any kind, whether express, implied, statutory, or otherwise, including, without limitation, warranties of accuracy, reliability, completeness, merchantability, fitness for a particular purpose, non-infringement, or regulatory compliance, to the maximum extent permitted by applicable law.
+
+The authors and contributors do not guarantee that the software or its outputs are accurate, complete, error-free, suitable for operational deployment, or capable of reproducing any specific natural event. Results may be affected by incomplete or inaccurate data, uncertain initial conditions and material properties, model simplifications, numerical approximations, calibration and validation limitations, hardware or dependency differences, programming errors, and unexpected runtime behavior.
+
+Users are solely responsible for determining whether the software is suitable for their intended purpose, selecting and verifying input data and parameters, reviewing and validating all results, obtaining any required professional or regulatory approvals, and complying with applicable laws, professional standards, institutional procedures, and safety requirements.
+
+To the maximum extent permitted by applicable law, the authors and contributors shall not be liable for any direct, indirect, incidental, special, exemplary, or consequential damages, or for any loss of data, profits, business, property, or opportunity, arising from the use of, inability to use, or reliance on the software or its outputs, regardless of the legal theory asserted and even if advised of the possibility of such damages.
+
+This disclaimer supplements the project documentation but does not replace, amend, or override the terms of the Apache License 2.0. No disclaimer or open-source license excludes liability where such exclusion is prohibited by applicable law.
+
