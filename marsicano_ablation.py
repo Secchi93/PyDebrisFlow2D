@@ -1286,12 +1286,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument(
         "--grid-sensitivity",
         action="store_true",
-        help="After the normal ablation, also run the Marsicano 20/10/5 m real-topography grid-sensitivity experiment.",
+        help="After the normal ablation, also run the Marsicano 20/15/10/8/6.5/5 m real-topography grid-sensitivity experiment.",
     )
     parser.add_argument(
         "--grid-sensitivity-only",
         action="store_true",
-        help="Run only the reviewer-requested Marsicano 20/10/5 m grid-sensitivity experiment (no 16-case multiphysics matrix).",
+        help="Run only the reviewer-requested Marsicano 20/15/10/8/6.5/5 m grid-sensitivity experiment (no 16-case multiphysics matrix).",
     )
     args = parser.parse_args(argv)
 
