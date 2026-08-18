@@ -13,6 +13,7 @@ import argparse
 import csv
 import json
 import math
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
@@ -26,6 +27,17 @@ from pydebrisflow.numerics import FluxWorkspace, compute_dt, transport_step_sspr
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+
+# Publication sizing: keep symbols and labels readable after insertion at journal width.
+plt.rcParams.update({
+    "font.size": 13.0,
+    "axes.titlesize": 14.0,
+    "axes.labelsize": 13.5,
+    "xtick.labelsize": 12.0,
+    "ytick.labelsize": 12.0,
+    "legend.fontsize": 11.5,
+    "lines.markersize": 6.5,
+})
 
 import pydebrisflow as sm
 import yaml
@@ -56,7 +68,7 @@ def savefig(fig: plt.Figure, stem: str) -> list[str]:
     saved: list[str] = []
     if not labelled_axes:
         path = OUT_DIR / f"{stem}.png"
-        fig.savefig(path, dpi=240, bbox_inches="tight")
+        fig.savefig(path, dpi=300, bbox_inches="tight")
         saved.append(str(path))
     else:
         original_size = fig.get_size_inches().copy()
@@ -83,7 +95,7 @@ def savefig(fig: plt.Figure, stem: str) -> list[str]:
                 for ax in panel_axes:
                     ax.set_position(target)
                 path = OUT_DIR / f"{stem}_{suffix}.png"
-                fig.savefig(path, dpi=240, bbox_inches="tight")
+                fig.savefig(path, dpi=300, bbox_inches="tight")
                 saved.append(str(path))
         finally:
             fig.set_size_inches(original_size, forward=True)
@@ -280,7 +292,7 @@ def panel(ax: plt.Axes, txt: str) -> None:
         textcoords="offset points",
         ha="right",
         va="bottom",
-        fontsize=11,
+        fontsize=13,
         fontweight="bold",
         annotation_clip=False,
         clip_on=False,
@@ -332,7 +344,7 @@ def status(ax: plt.Axes, txt: str, passed: bool = True, loc=None, y_offset: floa
     ax.text(
         x0, y0, display_text,
         transform=ax.transAxes,
-        ha=ha, va=va, fontsize=8.8,
+        ha=ha, va=va, fontsize=10.0,
         bbox=dict(boxstyle="round,pad=0.3", facecolor="white", edgecolor="0.4", alpha=0.95),
         zorder=20,
     )
@@ -697,7 +709,7 @@ def fig01_hllc_consistency() -> Dict[str, float]:
     smart_legend(axes[0], loc="upper left", bbox_to_anchor=(0.02, 0.96), allow_outside=False)
     panel(axes[0], "(a)")
 
-    axes[1].semilogy(alpha, errors, marker="o", markersize=3, linewidth=1.8)
+    axes[1].semilogy(alpha, errors, marker="o", markersize=5, linewidth=1.8)
     axes[1].axhline(1.0e-10, linestyle="--", label="Tolerance")
     axes[1].set_xlabel(r"State-family parameter $\alpha$")
     axes[1].set_ylabel(r"$\max |F_{phys}-F_{HLLC}|$")
@@ -1007,7 +1019,7 @@ def fig07_wet_dry_fallback() -> Dict[str, float]:
     metric = float(np.max(np.where(flags > 0.5, diffs, 0.0)))
 
     fig, axes = plt.subplots(2, 1, figsize=(9.3, 7.2), constrained_layout=True)
-    axes[0].loglog(dry_depths, np.maximum(diffs, 1.0e-30), marker="o", markersize=3, linewidth=1.8)
+    axes[0].loglog(dry_depths, np.maximum(diffs, 1.0e-30), marker="o", markersize=5, linewidth=1.8)
     axes[0].axhline(1.0e-12, linestyle="--", label="Tolerance")
     axes[0].set_xlabel(r"Right depth $h_R$ [m]")
     axes[0].set_ylabel(r"$\max|F_{ret}-F_{HLL}|$")
@@ -1096,7 +1108,7 @@ def fig08_dambreak_profiles() -> Dict[str, float]:
     smart_legend(axes[0], ncol=2, loc="upper right", bbox_to_anchor=(0.98, 0.96), allow_outside=False)
     panel(axes[0], "(a)")
 
-    axes[1].plot(times, rel, linewidth=1.8, marker="o", markersize=3, label="Relative volume error")
+    axes[1].plot(times, rel, linewidth=1.8, marker="o", markersize=5, label="Relative volume error")
     axes[1].axhline(5.0e-9, linestyle="--", label="Volume tolerance")
     axes[1].axhline(-5.0e-9, linestyle="--")
     axr = axes[1].twinx(); axr.plot(times, minc, linewidth=1.4, linestyle=":", label="Minimum state component")
@@ -1160,7 +1172,7 @@ def fig09_composition_advection() -> Dict[str, float]:
     smart_legend(axes[0], loc="upper right", bbox_to_anchor=(0.98, 0.96), allow_outside=False)
     panel(axes[0], "(a)")
 
-    axes[1].plot(times, errs, linewidth=1.8, marker="o", markersize=3, label=r"RMS error in $f_c$")
+    axes[1].plot(times, errs, linewidth=1.8, marker="o", markersize=5, label=r"RMS error in $f_c$")
     axes[1].axhline(1.0e-2, linestyle="--", label="Acceptance threshold")
     axes[1].set_xlabel("Time [s]")
     axes[1].set_ylabel("RMS error")
@@ -1222,7 +1234,7 @@ def fig10_open_boundary_budget() -> Dict[str, float]:
     axes[0].set_ylabel("Cumulative change")
     axes[0].grid(alpha=0.25)
     axes[0].set_ylim(-0.38, 0.25)
-    smart_legend(axes[0], ncol=2, fontsize=8, loc="upper right", bbox_to_anchor=(0.98, 0.96), allow_outside=False)
+    smart_legend(axes[0], ncol=2, fontsize=11.5, loc="upper right", bbox_to_anchor=(0.98, 0.96), allow_outside=False)
     panel(axes[0], "(a)")
 
     axes[1].plot(times, dres['fluid'], linewidth=1.8, label="Fluid residual")
@@ -1388,6 +1400,7 @@ class _backend_RitterResult:
     fallback_faces: int
     first_order_fallback_steps: int
     retries: int
+    elapsed_wall_s: float
 
 def _backend_ritter_exact(x: np.ndarray, t: float, h0: float=10.0, g: float=9.81, dam_x: float=0.0) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
 
@@ -1510,6 +1523,8 @@ def _backend_run_ritter_cuda(nx: int, order: int, *, limiter: str='superbee', xm
     global_fallback_steps = 0
     retries = 0
     used_dts: List[float] = []
+    cuda.synchronize()
+    wall_start = time.perf_counter()
     while t < t_end - 1e-13:
         if fixed_dt is None:
             dt = _compute_dt_device(d_U, ws, cfg, dx, dy, ng, nx, ny_core, threads_1d)
@@ -1541,6 +1556,7 @@ def _backend_run_ritter_cuda(nx: int, order: int, *, limiter: str='superbee', xm
         steps += 1
         used_dts.append(dt)
     cuda.synchronize()
+    elapsed_wall_s = time.perf_counter() - wall_start
     U_final = d_U.copy_to_host()[:, ng:ng + ny_core, ng:ng + nx]
     h = np.mean(np.maximum(U_final[HF] + U_final[HSU] + U_final[HSL], 0.0), axis=0)
     mass = cfg.material.rho_fluid * np.maximum(U_final[HF], 0.0)
@@ -1553,7 +1569,7 @@ def _backend_run_ritter_cuda(nx: int, order: int, *, limiter: str='superbee', xm
     qx = h * u
     h_exact, u_exact, qx_exact = _backend_ritter_exact(x, t_end, h0, cfg.numerics.g, dam_x)
     dts = np.asarray(used_dts, dtype=np.float64)
-    return _backend_RitterResult(nx=nx, order=order, limiter=limiter, x=x, h=h, u=u, qx=qx, h_exact=h_exact, u_exact=u_exact, qx_exact=qx_exact, dt_mode='fixed' if fixed_dt is not None else 'CFL', requested_dt=fixed_dt, min_dt=float(np.min(dts)), max_dt=float(np.max(dts)), mean_dt=float(np.mean(dts)), steps=steps, fallback_faces=fallback_faces, first_order_fallback_steps=global_fallback_steps, retries=retries)
+    return _backend_RitterResult(nx=nx, order=order, limiter=limiter, x=x, h=h, u=u, qx=qx, h_exact=h_exact, u_exact=u_exact, qx_exact=qx_exact, dt_mode='fixed' if fixed_dt is not None else 'CFL', requested_dt=fixed_dt, min_dt=float(np.min(dts)), max_dt=float(np.max(dts)), mean_dt=float(np.mean(dts)), steps=steps, fallback_faces=fallback_faces, first_order_fallback_steps=global_fallback_steps, retries=retries, elapsed_wall_s=float(elapsed_wall_s))
 
 def _backend_run_ritter_cpu(nx: int, order: int, *, limiter: str='superbee', xmin: float=-500.0, xmax: float=500.0, dam_x: float=0.0, h0: float=10.0, t_end: float=15.0, cfl: float=0.25, fixed_dt: Optional[float]=None, h_dry: float=1e-06) -> _backend_RitterResult:
     if nx < 16:
@@ -1590,6 +1606,7 @@ def _backend_run_ritter_cpu(nx: int, order: int, *, limiter: str='superbee', xmi
     global_fallback_steps = 0
     retries = 0
     used_dts: List[float] = []
+    wall_start = time.perf_counter()
     while t < t_end - 1e-13:
         dt = compute_dt(U, core, dx, dy, cfg) if fixed_dt is None else float(fixed_dt)
         dt = min(dt, t_end - t)
@@ -1612,6 +1629,7 @@ def _backend_run_ritter_cpu(nx: int, order: int, *, limiter: str='superbee', xmi
         t += dt
         steps += 1
         used_dts.append(dt)
+    elapsed_wall_s = time.perf_counter() - wall_start
     U_final = U[:, core[0], core[1]]
     h = np.mean(np.maximum(U_final[HF] + U_final[HSU] + U_final[HSL], 0.0), axis=0)
     mass = cfg.material.rho_fluid * np.maximum(U_final[HF], 0.0)
@@ -1624,7 +1642,7 @@ def _backend_run_ritter_cpu(nx: int, order: int, *, limiter: str='superbee', xmi
     qx = h * u
     h_exact, u_exact, qx_exact = _backend_ritter_exact(x, t_end, h0, cfg.numerics.g, dam_x)
     dts = np.asarray(used_dts, dtype=np.float64)
-    return _backend_RitterResult(nx=nx, order=order, limiter=limiter, x=x, h=h, u=u, qx=qx, h_exact=h_exact, u_exact=u_exact, qx_exact=qx_exact, dt_mode='fixed' if fixed_dt is not None else 'CFL', requested_dt=fixed_dt, min_dt=float(np.min(dts)), max_dt=float(np.max(dts)), mean_dt=float(np.mean(dts)), steps=steps, fallback_faces=fallback_faces, first_order_fallback_steps=global_fallback_steps, retries=retries)
+    return _backend_RitterResult(nx=nx, order=order, limiter=limiter, x=x, h=h, u=u, qx=qx, h_exact=h_exact, u_exact=u_exact, qx_exact=qx_exact, dt_mode='fixed' if fixed_dt is not None else 'CFL', requested_dt=fixed_dt, min_dt=float(np.min(dts)), max_dt=float(np.max(dts)), mean_dt=float(np.mean(dts)), steps=steps, fallback_faces=fallback_faces, first_order_fallback_steps=global_fallback_steps, retries=retries, elapsed_wall_s=float(elapsed_wall_s))
 
 def _backend_run_ritter_case(nx: int, order: int, *, backend: str, allow_cudasim: bool=False, **kwargs: object) -> _backend_RitterResult:
     selected = str(backend).strip().lower()
@@ -1778,19 +1796,19 @@ def _backend__plot_profiles(out_dir: Path, results: Dict[Tuple[int, int], _backe
         axes[1].legend(
             handles, labels, loc='upper left', bbox_to_anchor=(0.02, 0.96),
             bbox_transform=axes[1].transAxes, borderaxespad=0.0,
-            ncol=2, fontsize=8, frameon=False,
+            ncol=2, fontsize=9.5, frameon=False,
         )
     elif 'discharge' in filename.lower():
         axes[1].legend(
             handles, labels, loc='upper left', bbox_to_anchor=(0.02, 0.96),
             bbox_transform=axes[1].transAxes, borderaxespad=0.0,
-            ncol=2, fontsize=8, frameon=False,
+            ncol=2, fontsize=9.5, frameon=False,
         )
     else:
         axes[1].legend(
             handles, labels, loc='upper right', bbox_to_anchor=(0.98, 0.96),
             bbox_transform=axes[1].transAxes, borderaxespad=0.0,
-            ncol=2, fontsize=8, frameon=False,
+            ncol=2, fontsize=9.5, frameon=False,
         )
     fig.tight_layout()
     _backend__save_figure(fig, out_dir, filename)
@@ -1867,6 +1885,210 @@ def _backend__plot_limiter_profiles(out_dir: Path, results: Dict[Tuple[str, int]
     fig.savefig(out_dir / f'{filename}.pdf', bbox_inches='tight')
     plt.close(fig)
 
+
+def _backend__build_order_tradeoff_rows(
+    results: Dict[Tuple[int, int], _backend_RitterResult],
+    nx_values: Sequence[int],
+    xmin: float,
+    xmax: float,
+) -> List[Dict[str, object]]:
+    """Pair O1/O2 Ritter runs at identical resolution for reviewer-ready cost/accuracy metrics."""
+    rows: List[Dict[str, object]] = []
+    for nx in nx_values:
+        first = results[1, int(nx)]
+        second = results[2, int(nx)]
+        dx = (xmax - xmin) / float(nx)
+        h1 = _backend__relative_errors(first.h, first.h_exact, dx)
+        h2 = _backend__relative_errors(second.h, second.h_exact, dx)
+        q1 = _backend__relative_errors(first.qx, first.qx_exact, dx)
+        q2 = _backend__relative_errors(second.qx, second.qx_exact, dx)
+        u1 = _backend__relative_errors(first.u, first.u_exact, dx)
+        u2 = _backend__relative_errors(second.u, second.u_exact, dx)
+
+        def ratio(num: float, den: float) -> float:
+            return float(num / den) if den != 0.0 else float('nan')
+
+        runtime_ratio = ratio(second.elapsed_wall_s, first.elapsed_wall_s)
+        error_gain = ratio(h1['rel_l1'], h2['rel_l1'])
+        rows.append({
+            'nx': int(nx),
+            'dx_m': float(dx),
+            'o1_elapsed_wall_s': float(first.elapsed_wall_s),
+            'o2_elapsed_wall_s': float(second.elapsed_wall_s),
+            'runtime_ratio_o2_over_o1': runtime_ratio,
+            'o1_steps': int(first.steps),
+            'o2_steps': int(second.steps),
+            'step_ratio_o2_over_o1': ratio(float(second.steps), float(first.steps)),
+            'o1_time_per_step_s': ratio(first.elapsed_wall_s, float(first.steps)),
+            'o2_time_per_step_s': ratio(second.elapsed_wall_s, float(second.steps)),
+            'time_per_step_ratio_o2_over_o1': ratio(
+                ratio(second.elapsed_wall_s, float(second.steps)),
+                ratio(first.elapsed_wall_s, float(first.steps)),
+            ),
+            'o1_h_rel_l1': h1['rel_l1'],
+            'o2_h_rel_l1': h2['rel_l1'],
+            'h_l1_error_improvement_o1_over_o2': error_gain,
+            'o1_h_rel_l2': h1['rel_l2'],
+            'o2_h_rel_l2': h2['rel_l2'],
+            'h_l2_error_improvement_o1_over_o2': ratio(h1['rel_l2'], h2['rel_l2']),
+            'o1_qx_rel_l1': q1['rel_l1'],
+            'o2_qx_rel_l1': q2['rel_l1'],
+            'qx_l1_error_improvement_o1_over_o2': ratio(q1['rel_l1'], q2['rel_l1']),
+            'o1_u_rel_l1': u1['rel_l1'],
+            'o2_u_rel_l1': u2['rel_l1'],
+            'u_l1_error_improvement_o1_over_o2': ratio(u1['rel_l1'], u2['rel_l1']),
+            'accuracy_gain_per_runtime_ratio': ratio(error_gain, runtime_ratio),
+        })
+    return rows
+
+
+def _backend__plot_ritter_accuracy_cost(
+    out_dir: Path,
+    results: Dict[Tuple[int, int], _backend_RitterResult],
+    nx_values: Sequence[int],
+    xmin: float,
+    xmax: float,
+) -> None:
+    """Plot Ritter depth error against measured solver wall-clock time.
+
+    The x-axis remains logarithmic, but only the 1-2-5 sequence of each
+    decade is labelled (e.g. 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10 s).
+    This avoids the dense scientific-notation labels produced by the
+    default logarithmic formatter and keeps the figure publication-ready.
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.ticker import FuncFormatter, LogLocator, NullFormatter
+
+    fig, ax = plt.subplots(figsize=(6.4, 4.8))
+
+    all_times: List[float] = []
+
+    for order in (1, 2):
+        times: List[float] = []
+        errors: List[float] = []
+        labels: List[str] = []
+
+        for nx in nx_values:
+            result = results[order, int(nx)]
+            dx = (xmax - xmin) / float(nx)
+            err = _backend__relative_errors(result.h, result.h_exact, dx)['rel_l1']
+
+            elapsed = float(result.elapsed_wall_s)
+            times.append(elapsed)
+            all_times.append(elapsed)
+            errors.append(float(err))
+
+            # Cleaner spatial-resolution labels for the published figure.
+            dx_label = f"{dx:.2f}".rstrip("0").rstrip(".")
+            labels.append(f"{dx_label} m")
+
+        ax.loglog(
+            times,
+            errors,
+            marker="o",
+            linewidth=1.5,
+            label=f"Order {order}",
+        )
+
+        for xval, yval, label in zip(times, errors, labels):
+            ax.annotate(
+                label,
+                (xval, yval),
+                xytext=(5, 5),
+                textcoords="offset points",
+                fontsize=10.5,
+            )
+
+    # ------------------------------------------------------------------
+    # Clean logarithmic x-axis.
+    #
+    # Major ticks: 1, 2 and 5 times each power of ten.
+    # Minor ticks: remaining logarithmic subdivisions, without labels.
+    # ------------------------------------------------------------------
+    ax.set_xscale("log")
+
+    ax.xaxis.set_major_locator(
+        LogLocator(base=10.0, subs=(1.0, 2.0, 5.0), numticks=30)
+    )
+    ax.xaxis.set_minor_locator(
+        LogLocator(base=10.0, subs=(3.0, 4.0, 6.0, 7.0, 8.0, 9.0), numticks=100)
+    )
+    ax.xaxis.set_minor_formatter(NullFormatter())
+
+    def _format_seconds(value: float, _pos: int) -> str:
+        """Human-readable labels on a logarithmic time axis."""
+        if value <= 0.0 or not np.isfinite(value):
+            return ""
+        if value >= 100.0:
+            return f"{value:.0f}"
+        if value >= 10.0:
+            return f"{value:.0f}"
+        if value >= 1.0:
+            return f"{value:g}"
+        if value >= 0.1:
+            return f"{value:.1f}".rstrip("0").rstrip(".")
+        if value >= 0.01:
+            return f"{value:.2f}".rstrip("0").rstrip(".")
+        if value >= 0.001:
+            return f"{value:.3f}".rstrip("0").rstrip(".")
+        return f"{value:.1e}"
+
+    ax.xaxis.set_major_formatter(FuncFormatter(_format_seconds))
+
+    # Small logarithmic padding so the first/last markers and annotations
+    # are not pressed against the axes.
+    finite_times = np.asarray(
+        [t for t in all_times if np.isfinite(t) and t > 0.0],
+        dtype=float,
+    )
+    if finite_times.size:
+        tmin = float(np.min(finite_times))
+        tmax = float(np.max(finite_times))
+        ax.set_xlim(tmin / 1.25, tmax * 1.25)
+
+    ax.set_xlabel("Solver wall-clock time [s]")
+    ax.set_ylabel(r"Relative $L_1$ error in $h$")
+    ax.set_title("Ritter accuracy versus computational cost")
+
+    # Major grid slightly more visible; minor logarithmic grid lighter.
+    ax.grid(True, which="major", alpha=0.28)
+    ax.grid(True, which="minor", alpha=0.10)
+
+    ax.tick_params(axis="x", which="major", labelsize=11.5, pad=5)
+    ax.tick_params(axis="x", which="minor", labelbottom=False)
+
+    _backend__smart_legend(ax, frameon=False, loc="upper right")
+
+    fig.tight_layout()
+    fig.savefig(
+        out_dir / "figure_9_ritter_accuracy_vs_cost.png",
+        dpi=300,
+        bbox_inches="tight",
+    )
+    fig.savefig(
+        out_dir / "figure_9_ritter_accuracy_vs_cost.pdf",
+        bbox_inches="tight",
+    )
+    plt.close(fig)
+
+
+def _backend__print_ritter_tradeoff(rows: Sequence[Dict[str, object]]) -> None:
+    print('\n' + '=' * 104)
+    print('RITTER FIRST- VS SECOND-ORDER ACCURACY/COST TRADE-OFF')
+    print('=' * 104)
+    print('Nx      dx[m]      t_O1[s]      t_O2[s]   cost O2/O1    L1 gain O1/O2   gain/cost')
+    print('-' * 104)
+    for row in rows:
+        print(
+            f"{int(row['nx']):<7d} "
+            f"{float(row['dx_m']):>8.4g} "
+            f"{float(row['o1_elapsed_wall_s']):>12.5g} "
+            f"{float(row['o2_elapsed_wall_s']):>12.5g} "
+            f"{float(row['runtime_ratio_o2_over_o1']):>12.4g} "
+            f"{float(row['h_l1_error_improvement_o1_over_o2']):>15.4g} "
+            f"{float(row['accuracy_gain_per_runtime_ratio']):>11.4g}"
+        )
+
 def _backend__plot_limiter_hstar(out_dir: Path, spatial_rows: Sequence[Dict[str, object]], temporal_rows: Sequence[Dict[str, object]], limiters: Sequence[str], monitor_x: float, t_end: float) -> None:
     import matplotlib.pyplot as plt
     fig, axes = plt.subplots(1, 2, figsize=(11.4, 4.6))
@@ -1925,6 +2147,21 @@ def _backend_run_backend_verification_suite(out_dir: str, *, limiter: str='super
         nx_values = tuple(sorted(set(nx_values + (limiter_profile_nx,))))
     h_exact_monitor, _, _ = _backend_ritter_exact(np.array([monitor_x]), t_end, h0, 9.81, dam_x)
     h_star_exact = float(h_exact_monitor[0])
+
+    # Compile/warm the selected backend before any timed O1/O2 run. The warm-up
+    # is deliberately discarded so measured wall times represent numerical
+    # execution rather than first-call JIT compilation or CUDA kernel loading.
+    warmup_nx = max(32, min(min(nx_values), 100))
+    warmup_t_end = min(float(t_end), 0.05)
+    print(f'[VERIFY][WARMUP] backend={backend}, Nx={warmup_nx}, t_end={warmup_t_end:g} s')
+    for warmup_order in (1, 2):
+        _backend_run_ritter_case(
+            warmup_nx, warmup_order, limiter=limiter,
+            xmin=xmin, xmax=xmax, dam_x=dam_x, h0=h0,
+            t_end=warmup_t_end, cfl=cfl, allow_cudasim=allow_cudasim,
+            backend=backend,
+        )
+
     order_results: Dict[Tuple[int, int], _backend_RitterResult] = {}
     order_temporal_results: Dict[Tuple[int, float], _backend_RitterResult] = {}
     error_rows: List[Dict[str, object]] = []
@@ -1940,8 +2177,8 @@ def _backend_run_backend_verification_suite(out_dir: str, *, limiter: str='super
                 errors = _backend__relative_errors(getattr(result, field), getattr(result, exact_field), dx)
                 row = {'dx': dx, **errors}
                 order_errors[field].append(row)
-                error_rows.append({'order': order, 'limiter': limiter if order == 2 else 'not_used', 'nx': nx, 'dx_m': dx, 'field': field, **errors, 'steps': result.steps, 'dt_min_s': result.min_dt, 'dt_max_s': result.max_dt, 'dt_mean_s': result.mean_dt, 'hll_hllc_fallback_faces': result.fallback_faces, 'global_first_order_fallback_steps': result.first_order_fallback_steps, 'retries': result.retries})
-            spatial_rows.append({'order': order, 'limiter': limiter if order == 2 else 'not_used', 'nx': nx, 'dx_m': dx, 'h_star_m': _backend__monitor_depth(result, monitor_x), 'h_star_exact_m': h_star_exact, 'monitor_x_m': monitor_x, 'time_s': t_end})
+                error_rows.append({'order': order, 'limiter': limiter if order == 2 else 'not_used', 'nx': nx, 'dx_m': dx, 'field': field, **errors, 'elapsed_wall_s': result.elapsed_wall_s, 'steps': result.steps, 'time_per_step_s': result.elapsed_wall_s / max(result.steps, 1), 'dt_min_s': result.min_dt, 'dt_max_s': result.max_dt, 'dt_mean_s': result.mean_dt, 'hll_hllc_fallback_faces': result.fallback_faces, 'global_first_order_fallback_steps': result.first_order_fallback_steps, 'retries': result.retries})
+            spatial_rows.append({'order': order, 'limiter': limiter if order == 2 else 'not_used', 'nx': nx, 'dx_m': dx, 'h_star_m': _backend__monitor_depth(result, monitor_x), 'h_star_exact_m': h_star_exact, 'monitor_x_m': monitor_x, 'time_s': t_end, 'elapsed_wall_s': result.elapsed_wall_s, 'steps': result.steps, 'time_per_step_s': result.elapsed_wall_s / max(result.steps, 1)})
             _backend__save_profile_csv(output / f'ritter_profile_order{order}_nx{nx}.csv', result)
         for field in ('h', 'qx', 'u'):
             _backend__observed_orders(order_errors[field], 'rel_l1')
@@ -1958,7 +2195,7 @@ def _backend_run_backend_verification_suite(out_dir: str, *, limiter: str='super
             print(f'[VERIFY] Order h* sensitivity: order={order}, dt={dt:g} s, Nx={temporal_nx}')
             result = _backend_run_ritter_case(temporal_nx, order, limiter=limiter, xmin=xmin, xmax=xmax, dam_x=dam_x, h0=h0, t_end=t_end, cfl=cfl, fixed_dt=dt, allow_cudasim=allow_cudasim, backend=backend)
             order_temporal_results[order, dt] = result
-            temporal_rows.append({'order': order, 'limiter': limiter if order == 2 else 'not_used', 'nx': temporal_nx, 'dx_m': (xmax - xmin) / temporal_nx, 'dt_s': dt, 'h_star_m': _backend__monitor_depth(result, monitor_x), 'h_star_exact_m': h_star_exact, 'monitor_x_m': monitor_x, 'time_s': t_end, 'steps': result.steps, 'hll_hllc_fallback_faces': result.fallback_faces, 'global_first_order_fallback_steps': result.first_order_fallback_steps})
+            temporal_rows.append({'order': order, 'limiter': limiter if order == 2 else 'not_used', 'nx': temporal_nx, 'dx_m': (xmax - xmin) / temporal_nx, 'dt_s': dt, 'h_star_m': _backend__monitor_depth(result, monitor_x), 'h_star_exact_m': h_star_exact, 'monitor_x_m': monitor_x, 'time_s': t_end, 'elapsed_wall_s': result.elapsed_wall_s, 'steps': result.steps, 'time_per_step_s': result.elapsed_wall_s / max(result.steps, 1), 'hll_hllc_fallback_faces': result.fallback_faces, 'global_first_order_fallback_steps': result.first_order_fallback_steps})
     _backend__plot_profiles(output, order_results, nx_values, 'h', 'h_exact', '$h$ [m]', f'Ritter flow-depth profile at $t={t_end:g}$ s', 'figure_1_ritter_depth')
     _backend__plot_profiles(output, order_results, nx_values, 'qx', 'qx_exact', '$q_x$ [$\\mathrm{m^2\\,s^{-1}}$]', f'Ritter unit discharge at $t={t_end:g}$ s', 'figure_2_ritter_discharge')
     _backend__plot_profiles(output, order_results, nx_values, 'u', 'u_exact', '$u$ [$\\mathrm{m\\,s^{-1}}$]', f'Ritter velocity profile at $t={t_end:g}$ s', 'figure_3_ritter_velocity')
@@ -1966,6 +2203,10 @@ def _backend_run_backend_verification_suite(out_dir: str, *, limiter: str='super
     _backend__save_rows_csv(output / 'ritter_error_convergence.csv', error_rows)
     _backend__save_rows_csv(output / 'hstar_spatial_resolution.csv', spatial_rows)
     _backend__save_rows_csv(output / 'hstar_time_step.csv', temporal_rows)
+    tradeoff_rows = _backend__build_order_tradeoff_rows(order_results, nx_values, xmin, xmax)
+    _backend__save_rows_csv(output / 'ritter_order_tradeoff.csv', tradeoff_rows)
+    _backend__plot_ritter_accuracy_cost(output, order_results, nx_values, xmin, xmax)
+    _backend__print_ritter_tradeoff(tradeoff_rows)
     limiter_results: Dict[Tuple[str, int], _backend_RitterResult] = {}
     limiter_temporal_results: Dict[Tuple[str, float], _backend_RitterResult] = {}
     limiter_error_rows: List[Dict[str, object]] = []
@@ -1985,8 +2226,8 @@ def _backend_run_backend_verification_suite(out_dir: str, *, limiter: str='super
                 errors = _backend__relative_errors(getattr(result, field), getattr(result, exact_field), dx)
                 local_row = {'dx': dx, **errors}
                 field_errors[field].append(local_row)
-                limiter_error_rows.append({'order': 2, 'limiter': current_limiter, 'nx': nx, 'dx_m': dx, 'field': field, **errors, 'steps': result.steps, 'dt_min_s': result.min_dt, 'dt_max_s': result.max_dt, 'dt_mean_s': result.mean_dt, 'hll_hllc_fallback_faces': result.fallback_faces, 'global_first_order_fallback_steps': result.first_order_fallback_steps, 'retries': result.retries})
-            limiter_spatial_rows.append({'order': 2, 'limiter': current_limiter, 'nx': nx, 'dx_m': dx, 'h_star_m': _backend__monitor_depth(result, monitor_x), 'h_star_exact_m': h_star_exact, 'monitor_x_m': monitor_x, 'time_s': t_end})
+                limiter_error_rows.append({'order': 2, 'limiter': current_limiter, 'nx': nx, 'dx_m': dx, 'field': field, **errors, 'elapsed_wall_s': result.elapsed_wall_s, 'steps': result.steps, 'time_per_step_s': result.elapsed_wall_s / max(result.steps, 1), 'dt_min_s': result.min_dt, 'dt_max_s': result.max_dt, 'dt_mean_s': result.mean_dt, 'hll_hllc_fallback_faces': result.fallback_faces, 'global_first_order_fallback_steps': result.first_order_fallback_steps, 'retries': result.retries})
+            limiter_spatial_rows.append({'order': 2, 'limiter': current_limiter, 'nx': nx, 'dx_m': dx, 'h_star_m': _backend__monitor_depth(result, monitor_x), 'h_star_exact_m': h_star_exact, 'monitor_x_m': monitor_x, 'time_s': t_end, 'elapsed_wall_s': result.elapsed_wall_s, 'steps': result.steps, 'time_per_step_s': result.elapsed_wall_s / max(result.steps, 1)})
             _backend__save_profile_csv(output / f'ritter_limiter_{current_limiter}_nx{nx}.csv', result)
         for field in ('h', 'qx', 'u'):
             _backend__observed_orders(field_errors[field], 'rel_l1')
@@ -2004,7 +2245,7 @@ def _backend_run_backend_verification_suite(out_dir: str, *, limiter: str='super
                 print(f'[VERIFY] Limiter h* sensitivity: limiter={current_limiter}, order=2, dt={dt:g} s, Nx={temporal_nx}')
                 result = _backend_run_ritter_case(temporal_nx, 2, limiter=current_limiter, xmin=xmin, xmax=xmax, dam_x=dam_x, h0=h0, t_end=t_end, cfl=cfl, fixed_dt=dt, allow_cudasim=allow_cudasim, backend=backend)
             limiter_temporal_results[current_limiter, dt] = result
-            limiter_temporal_rows.append({'order': 2, 'limiter': current_limiter, 'nx': temporal_nx, 'dx_m': (xmax - xmin) / temporal_nx, 'dt_s': dt, 'h_star_m': _backend__monitor_depth(result, monitor_x), 'h_star_exact_m': h_star_exact, 'monitor_x_m': monitor_x, 'time_s': t_end, 'steps': result.steps, 'hll_hllc_fallback_faces': result.fallback_faces, 'global_first_order_fallback_steps': result.first_order_fallback_steps})
+            limiter_temporal_rows.append({'order': 2, 'limiter': current_limiter, 'nx': temporal_nx, 'dx_m': (xmax - xmin) / temporal_nx, 'dt_s': dt, 'h_star_m': _backend__monitor_depth(result, monitor_x), 'h_star_exact_m': h_star_exact, 'monitor_x_m': monitor_x, 'time_s': t_end, 'elapsed_wall_s': result.elapsed_wall_s, 'steps': result.steps, 'time_per_step_s': result.elapsed_wall_s / max(result.steps, 1), 'hll_hllc_fallback_faces': result.fallback_faces, 'global_first_order_fallback_steps': result.first_order_fallback_steps})
     _backend__plot_limiter_profiles(output, limiter_results, limiters, limiter_profile_nx, 'h', 'h_exact', '$h$ [m]', f'Second-order limiter comparison for $h(x)$ at $t={t_end:g}$ s, $N_x={limiter_profile_nx}$', 'figure_5_limiter_depth')
     _backend__plot_limiter_profiles(output, limiter_results, limiters, limiter_profile_nx, 'qx', 'qx_exact', '$q_x$ [$\\mathrm{m^2\\,s^{-1}}$]', f'Second-order limiter comparison for $q_x(x)$ at $t={t_end:g}$ s, $N_x={limiter_profile_nx}$', 'figure_6_limiter_discharge')
     _backend__plot_limiter_profiles(output, limiter_results, limiters, limiter_profile_nx, 'u', 'u_exact', '$u$ [$\\mathrm{m\\,s^{-1}}$]', f'Second-order limiter comparison for $u(x)$ at $t={t_end:g}$ s, $N_x={limiter_profile_nx}$', 'figure_7_limiter_velocity')
@@ -2012,8 +2253,8 @@ def _backend_run_backend_verification_suite(out_dir: str, *, limiter: str='super
     _backend__save_rows_csv(output / 'ritter_limiter_error_convergence.csv', limiter_error_rows)
     _backend__save_rows_csv(output / 'hstar_limiter_spatial_resolution.csv', limiter_spatial_rows)
     _backend__save_rows_csv(output / 'hstar_limiter_time_step.csv', limiter_temporal_rows)
-    figures = ['figure_1_ritter_depth.png', 'figure_2_ritter_discharge.png', 'figure_3_ritter_velocity.png', 'figure_4_hstar_discretization.png', 'figure_5_limiter_depth.png', 'figure_6_limiter_discharge.png', 'figure_7_limiter_velocity.png', 'figure_8_limiter_hstar_discretization.png']
-    summary: Dict[str, object] = {'backend': backend, 'device': device, 'order_comparison_second_order_limiter': limiter, 'limiter_comparison_order': 2, 'limiters_compared': list(limiters), 'limiter_profile_nx': limiter_profile_nx, 'orders': [1, 2], 'nx_values': list(nx_values), 'dt_values_s': list(dt_values), 'temporal_nx': temporal_nx, 'domain_m': [xmin, xmax], 'dam_x_m': dam_x, 'reservoir_depth_m': h0, 'final_time_s': t_end, 'monitor_x_m': monitor_x, 'h_star_definition': 'linearly interpolated numerical flow depth at monitor_x and final_time', 'h_star_exact_m': h_star_exact, 'figures': figures}
+    figures = ['figure_1_ritter_depth.png', 'figure_2_ritter_discharge.png', 'figure_3_ritter_velocity.png', 'figure_4_hstar_discretization.png', 'figure_5_limiter_depth.png', 'figure_6_limiter_discharge.png', 'figure_7_limiter_velocity.png', 'figure_8_limiter_hstar_discretization.png', 'figure_9_ritter_accuracy_vs_cost.png']
+    summary: Dict[str, object] = {'backend': backend, 'device': device, 'order_comparison_second_order_limiter': limiter, 'limiter_comparison_order': 2, 'limiters_compared': list(limiters), 'limiter_profile_nx': limiter_profile_nx, 'orders': [1, 2], 'nx_values': list(nx_values), 'dt_values_s': list(dt_values), 'temporal_nx': temporal_nx, 'domain_m': [xmin, xmax], 'dam_x_m': dam_x, 'reservoir_depth_m': h0, 'final_time_s': t_end, 'monitor_x_m': monitor_x, 'h_star_definition': 'linearly interpolated numerical flow depth at monitor_x and final_time', 'h_star_exact_m': h_star_exact, 'order_tradeoff_csv': 'ritter_order_tradeoff.csv', 'accuracy_cost_figure': 'figure_9_ritter_accuracy_vs_cost.png', 'figures': figures}
     with (output / 'backend_verification_summary.json').open('w', encoding='utf-8') as stream:
         json.dump(summary, stream, indent=2)
     return summary
