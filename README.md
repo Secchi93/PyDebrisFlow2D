@@ -625,7 +625,7 @@ This disclaimer supplements the project documentation but does not replace, amen
 
 <div align="center">
 
-**PyDebrisFlow2D v1.4.0**
+**PyDebrisFlow2D v1.2.0**
 
 Conservative finite-volume research software for two-dimensional debris-flow simulation.
 
