@@ -57,7 +57,7 @@ $$
 \mathbf{S}(\mathbf{U})
 $$
 
-or, explicitly in the two horizontal directions,
+or, explicitly in two horizontal dimensions,
 
 $$
 \frac{\partial \mathbf{U}}{\partial t}
