@@ -49,27 +49,21 @@ The repository also provides a reproducible verification and publication workflo
 
 PyDebrisFlow2D solves a conservative depth-averaged balance-law system of the generic form:
 
-$$
-\frac{\partial \mathbf{U}}{\partial t}
-+
-\nabla \cdot \mathbf{F}(\mathbf{U})
-=
-\mathbf{S}(\mathbf{U})
-$$
+<div align="center">
+
+<img src="docs/images/governing_equation_compact.png" width="720" alt="Generic conservative balance-law equation">
+
+</div>
 
 or, explicitly in the two horizontal directions,
 
-$$
-\frac{\partial \mathbf{U}}{\partial t}
-+
-\frac{\partial \mathbf{F}(\mathbf{U})}{\partial x}
-+
-\frac{\partial \mathbf{G}(\mathbf{U})}{\partial y}
-=
-\mathbf{S}(\mathbf{U})
-$$
+<div align="center">
 
-where $\mathbf{U}$ is the vector of conservative state variables, $\mathbf{F}$ and $\mathbf{G}$ are the horizontal flux vectors, and $\mathbf{S}$ contains the source terms associated with topography, basal resistance, bed exchange, deposition, segregation, and other enabled physical processes.
+<img src="docs/images/governing_equation_2d.png" width="980" alt="Two-dimensional conservative balance-law equation">
+
+</div>
+
+where **U** is the vector of conservative state variables, **F** and **G** are the horizontal flux vectors, and **S** contains the source terms associated with topography, basal resistance, bed exchange, deposition, segregation, and other enabled physical processes.
 
 ## Resistance closures
 
@@ -611,7 +605,11 @@ The license permits use, modification, and redistribution, including commercial 
 
 PyDebrisFlow2D is research software intended for scientific research, numerical experimentation, education, and method development.
 
+It is **not** a certified engineering tool, operational forecasting system, emergency-management platform, hazard-warning system, early-warning system, or other safety-critical system.
+
 Simulation outputs depend on model assumptions, input data, DEM quality, release geometry, initial and boundary conditions, material and rheological parameters, source-term parameterizations, calibration, numerical resolution, time-step selection, software dependencies, hardware, and user-defined configurations.
+
+Numerical stability, successful execution, or satisfaction of the included verification tests does not establish that a simulated scenario is physically correct or suitable for a particular real-world application.
 
 Results must be independently reviewed and validated by appropriately qualified professionals before being used in engineering design, hazard assessment, territorial or land-use planning, emergency management, regulatory procedures, or decisions affecting people, property, infrastructure, or the environment.
 
