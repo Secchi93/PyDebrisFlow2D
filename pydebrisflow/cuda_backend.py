@@ -853,9 +853,62 @@ def _cell_fields(U, j: int, i: int, rho_f: float, rho_s: float, h_dry: float, mu
 
 
 @cuda.jit(device=True, inline=True)
-def _basal_tau(h: float, mass: float, speed: float, rho: float, mu: float, xi: float, cosbeta: float, g: float, h_dry: float, yield_n0: float) -> float:
+def _oj_properties(
+    cs: float,
+    fc: float,
+    alpha_eta_si: float,
+    beta_eta: float,
+    alpha_tau_si: float,
+    beta_tau: float,
+    n_water: float,
+    turb_b: float,
+    turb_m: float,
+    eta_water: float,
+    transition_id: int,
+    cv_threshold: float,
+    basis_id: int,
+):
+    cv = cs if basis_id == 1 else cs * max(1.0 - fc, 0.0)
+    eta_raw = alpha_eta_si * math.exp(beta_eta * cv)
+    tau_raw = alpha_tau_si * math.exp(beta_tau * cv)
+    if transition_id == 1:  # literature_piecewise
+        if cs < cv_threshold:
+            eta = eta_water
+            tau_y = 0.0
+            n_td = n_water
+        else:
+            eta = eta_raw
+            tau_y = tau_raw
+            n_td = n_water * turb_b * math.exp(turb_m * cs)
+    elif transition_id == 2:  # continuous_asymptotic / legacy regularized alias
+        eta = eta_water + alpha_eta_si * (math.exp(beta_eta * cv) - 1.0)
+        tau_y = alpha_tau_si * (math.exp(beta_tau * cv) - 1.0)
+        n_td = n_water * (1.0 + turb_b * (math.exp(turb_m * cs) - 1.0))
+    else:  # raw
+        eta = eta_raw
+        tau_y = tau_raw
+        n_td = n_water * turb_b * math.exp(turb_m * cs)
+    return tau_y, eta, n_td
+
+
+@cuda.jit(device=True, inline=True)
+def _basal_tau(
+    h: float, mass: float, speed: float, rho: float, mu: float, xi: float,
+    cs: float, fc: float, cosbeta: float, g: float, h_dry: float, yield_n0: float,
+    rheology_id: int, oj_alpha_eta_si: float, oj_beta_eta: float,
+    oj_alpha_tau_si: float, oj_beta_tau: float, oj_K: float, oj_n_water: float,
+    oj_turb_b: float, oj_turb_m: float, oj_eta_water: float,
+    oj_transition_id: int, oj_cv_threshold: float, oj_basis_id: int,
+) -> float:
     if h <= h_dry:
         return 0.0
+    if rheology_id == 1:
+        tau_y, eta, n_td = _oj_properties(
+            cs, fc, oj_alpha_eta_si, oj_beta_eta, oj_alpha_tau_si, oj_beta_tau,
+            oj_n_water, oj_turb_b, oj_turb_m, oj_eta_water, oj_transition_id, oj_cv_threshold, oj_basis_id,
+        )
+        hh = max(h, h_dry)
+        return tau_y + oj_K * eta * speed / (8.0 * hh) + rho * g * n_td * n_td * speed * speed / math.pow(hh, 1.0 / 3.0)
     normal = mass * g * cosbeta
     tau = mu * normal + rho * g * speed * speed / max(xi, 1.0e-12)
     if yield_n0 > 0.0:
@@ -882,16 +935,54 @@ def _voellmy_friction(
     xi_fine: float,
     xi_coarse: float,
     yield_n0: float,
+    rheology_id: int,
+    oj_alpha_eta_si: float,
+    oj_beta_eta: float,
+    oj_alpha_tau_si: float,
+    oj_beta_tau: float,
+    oj_K: float,
+    oj_n_water: float,
+    oj_turb_b: float,
+    oj_turb_m: float,
+    oj_eta_water: float,
+    oj_transition_id: int,
+    oj_cv_threshold: float,
+    oj_basis_id: int,
 ) -> None:
     ic, jc = cuda.grid(2)
     if ic >= nx_core or jc >= ny_core:
         return
     i, j = ic + ng, jc + ng
-    _, _, _, _, _, _, h, mass, _, _, speed, _, _, _, mu, xi = _cell_fields(
+    _, _, _, _, _, _, h, mass, _, _, speed, cs, fc, rho, mu, xi = _cell_fields(
         U, j, i, rho_f, rho_s, h_dry, mu_fine, mu_coarse, xi_fine, xi_coarse, mu_override, xi_override, jc, ic
     )
     if h <= h_dry or mass <= 0.0 or speed <= 0.0:
         return
+
+    if rheology_id == 1:
+        tau_y, eta, n_td = _oj_properties(
+            cs, fc, oj_alpha_eta_si, oj_beta_eta, oj_alpha_tau_si, oj_beta_tau,
+            oj_n_water, oj_turb_b, oj_turb_m, oj_eta_water, oj_transition_id, oj_cv_threshold, oj_basis_id,
+        )
+        hh = max(h, h_dry)
+        a = tau_y / max(mass, 1.0e-30)
+        c = oj_K * eta / (8.0 * max(rho, 1.0e-30) * hh * hh)
+        b = g * n_td * n_td / math.pow(hh, 4.0 / 3.0)
+        rem = speed - dt * a
+        s1 = 0.0
+        if rem > 0.0:
+            A = dt * b
+            B = 1.0 + dt * c
+            if A > 1.0e-14:
+                disc = math.sqrt(B * B + 4.0 * A * rem)
+                s1 = 2.0 * rem / (B + disc)
+            else:
+                s1 = rem / B
+        fac = s1 / max(speed, 1.0e-30)
+        U[MX, j, i] *= fac
+        U[MY, j, i] *= fac
+        return
+
     normal = mass * g * cosbeta[jc, ic]
     yield_acc = 0.0
     if yield_n0 > 0.0:
@@ -1008,6 +1099,19 @@ def _erosion_deposition(
     xi_fine: float,
     xi_coarse: float,
     yield_n0: float,
+    rheology_id: int,
+    oj_alpha_eta_si: float,
+    oj_beta_eta: float,
+    oj_alpha_tau_si: float,
+    oj_beta_tau: float,
+    oj_K: float,
+    oj_n_water: float,
+    oj_turb_b: float,
+    oj_turb_m: float,
+    oj_eta_water: float,
+    oj_transition_id: int,
+    oj_cv_threshold: float,
+    oj_basis_id: int,
     erosion_enabled: int,
     erosion_model: int,
     bed_porosity: float,
@@ -1034,8 +1138,12 @@ def _erosion_deposition(
         return
     i, j = ic + ng, jc + ng
     fields = _cell_fields(U, j, i, rho_f, rho_s, h_dry, mu_fine, mu_coarse, xi_fine, xi_coarse, mu_override, xi_override, jc, ic)
-    hf, _, _, _, _, hs, h, mass, u, v, speed, cs, _, rho, mu, xi = fields
-    tau = _basal_tau(h, mass, speed, rho, mu, xi, cosbeta[jc, ic], g, h_dry, yield_n0)
+    hf, _, _, _, _, hs, h, mass, u, v, speed, cs, fc, rho, mu, xi = fields
+    tau = _basal_tau(
+        h, mass, speed, rho, mu, xi, cs, fc, cosbeta[jc, ic], g, h_dry, yield_n0,
+        rheology_id, oj_alpha_eta_si, oj_beta_eta, oj_alpha_tau_si, oj_beta_tau, oj_K, oj_n_water,
+        oj_turb_b, oj_turb_m, oj_eta_water, oj_transition_id, oj_cv_threshold, oj_basis_id,
+    )
     if tau > peak_tau[jc, ic]:
         peak_tau[jc, ic] = tau
     one_minus_por = 1.0 - bed_porosity
@@ -1082,8 +1190,12 @@ def _erosion_deposition(
 
     if deposition_enabled:
         fields = _cell_fields(U, j, i, rho_f, rho_s, h_dry, mu_fine, mu_coarse, xi_fine, xi_coarse, mu_override, xi_override, jc, ic)
-        hf, _, hsl, _, hcl, _, h, mass, _, _, speed, cs, _, rho, mu, xi = fields
-        tau = _basal_tau(h, mass, speed, rho, mu, xi, cosbeta[jc, ic], g, h_dry, yield_n0)
+        hf, _, hsl, _, hcl, _, h, mass, _, _, speed, cs, fc, rho, mu, xi = fields
+        tau = _basal_tau(
+            h, mass, speed, rho, mu, xi, cs, fc, cosbeta[jc, ic], g, h_dry, yield_n0,
+            rheology_id, oj_alpha_eta_si, oj_beta_eta, oj_alpha_tau_si, oj_beta_tau, oj_K, oj_n_water,
+            oj_turb_b, oj_turb_m, oj_eta_water, oj_transition_id, oj_cv_threshold, oj_basis_id,
+        )
         shear_factor = max(1.0 - tau / max(deposition_critical_shear, 1.0e-12), 0.0)
         hinder = math.pow(max(1.0 - cs / max(max_solid_fraction, 1.0e-12), 0.0), hindered_exponent)
         fine_lower = max(hsl - hcl, 0.0)
@@ -1300,19 +1412,46 @@ def _source_kernel_args(cfg: SolverConfig):
     return model_id, wf, wc
 
 
+
+def _rheology_kernel_args(cfg: SolverConfig):
+    r = cfg.rheology
+    model = str(r.model).strip().lower().replace("-", "_")
+    rheology_id = 1 if model in ("obrien_julien", "oj") else 0
+    basis = str(r.oj_concentration_basis).strip().lower()
+    basis_id = 1 if basis == "total" else 0
+    transition = str(r.oj_transition_mode).strip().lower()
+    transition_id = 1 if transition in ("literature_piecewise", "piecewise") else 2 if transition in ("continuous_asymptotic", "continuous", "regularized") else 0
+    return (
+        rheology_id,
+        0.1 * float(r.oj_alpha_viscosity_poise),
+        float(r.oj_beta_viscosity),
+        0.1 * float(r.oj_alpha_yield_dyn_cm2),
+        float(r.oj_beta_yield),
+        float(r.oj_laminar_K),
+        float(r.oj_water_manning_n),
+        float(r.oj_turbulent_b),
+        float(r.oj_turbulent_m),
+        float(r.oj_water_dynamic_viscosity_pas),
+        transition_id,
+        float(r.oj_clear_water_cv_threshold),
+        basis_id,
+    )
+
+
 def _apply_sources_first_half(U, zb, bed_fine, bed_coarse, peak_tau, cosbeta, mu_override, xi_override, ws, cfg, dt, grid_core, block, ng, nx_core, ny_core):
     n, m, e, d, s = cfg.numerics, cfg.material, cfg.erosion, cfg.deposition, cfg.segregation
     model_id, wf, wc = _source_kernel_args(cfg)
+    rheo = _rheology_kernel_args(cfg)
     _voellmy_friction[grid_core, block](
         U, cosbeta, mu_override, xi_override, ng, nx_core, ny_core, dt,
         n.g, n.h_dry, m.rho_fluid, m.rho_solid, m.mu_fine, m.mu_coarse,
-        m.xi_fine, m.xi_coarse, m.yield_N0_pa,
+        m.xi_fine, m.xi_coarse, m.yield_N0_pa, *rheo,
     )
     ws.source_budget.copy_to_device(np.zeros(4, dtype=np.float64))
     _erosion_deposition[grid_core, block](
         U, zb, bed_fine, bed_coarse, peak_tau, cosbeta, mu_override, xi_override, ws.source_budget,
         ng, nx_core, ny_core, dt, n.g, n.h_dry, m.rho_fluid, m.rho_solid,
-        m.max_solid_fraction, m.mu_fine, m.mu_coarse, m.xi_fine, m.xi_coarse, m.yield_N0_pa,
+        m.max_solid_fraction, m.mu_fine, m.mu_coarse, m.xi_fine, m.xi_coarse, m.yield_N0_pa, *rheo,
         int(e.enabled), model_id, e.bed_porosity, e.bed_coarse_fraction, e.critical_shear_pa,
         e.excess_shear_rate_ms, e.excess_shear_exponent, e.max_erosion_rate_ms,
         e.velocity_erosion_coefficient, e.potential_depth_per_kpa, e.erosion_velocity_ms,
@@ -1334,11 +1473,12 @@ def _apply_sources_first_half(U, zb, bed_fine, bed_coarse, peak_tau, cosbeta, mu
 def _apply_sources_second_half(U, zb, bed_fine, bed_coarse, peak_tau, cosbeta, mu_override, xi_override, ws, cfg, dt, grid_core, block, ng, nx_core, ny_core):
     n, m, e, d, s = cfg.numerics, cfg.material, cfg.erosion, cfg.deposition, cfg.segregation
     model_id, wf, wc = _source_kernel_args(cfg)
+    rheo = _rheology_kernel_args(cfg)
     ws.source_budget.copy_to_device(np.zeros(4, dtype=np.float64))
     _erosion_deposition[grid_core, block](
         U, zb, bed_fine, bed_coarse, peak_tau, cosbeta, mu_override, xi_override, ws.source_budget,
         ng, nx_core, ny_core, dt, n.g, n.h_dry, m.rho_fluid, m.rho_solid,
-        m.max_solid_fraction, m.mu_fine, m.mu_coarse, m.xi_fine, m.xi_coarse, m.yield_N0_pa,
+        m.max_solid_fraction, m.mu_fine, m.mu_coarse, m.xi_fine, m.xi_coarse, m.yield_N0_pa, *rheo,
         int(e.enabled), model_id, e.bed_porosity, e.bed_coarse_fraction, e.critical_shear_pa,
         e.excess_shear_rate_ms, e.excess_shear_exponent, e.max_erosion_rate_ms,
         e.velocity_erosion_coefficient, e.potential_depth_per_kpa, e.erosion_velocity_ms,
@@ -1466,7 +1606,7 @@ def run_solver_cuda(cfg: SolverConfig, device_name: Optional[str] = None) -> Dic
               d_bed_coarse, d_bed_coarse_trial, d_peak, d_peak_trial, d_mu, d_xi, d_cosbeta,
               P, sx, sy, fx, fy, cxl, cxr, cyl, cyr, rhs]
     cuda_allocated_mib_estimate = _device_memory_mib(arrays)
-    print(f"[CUDA] grid={nx}x{ny}, block={block[0]}x{block[1]}, allocated≈{cuda_allocated_mib_estimate:.1f} MiB")
+    print(f"[CUDA] grid={nx}x{ny}, block={block[0]}x{block[1]}, allocated~{cuda_allocated_mib_estimate:.1f} MiB")
 
     # Timed interval starts after allocation/setup. CUDA synchronization at the end
     # ensures queued device work is included in the reported wall time.
@@ -1524,11 +1664,12 @@ def run_solver_cuda(cfg: SolverConfig, device_name: Optional[str] = None) -> Dic
             # Erosion/deposition can modify z_b. Refresh the local slope before the
             # terminal Voellmy half-step so CPU and CUDA use the current bed geometry.
             _terrain_cosbeta[grid_core, block](d_zbtrial, d_cosbeta, ng, nx, ny, dx, dy)
+            rheo = _rheology_kernel_args(cfg)
             _voellmy_friction[grid_core, block](
                 final_state, d_cosbeta, d_mu, d_xi, ng, nx, ny, 0.5 * dt,
                 cfg.numerics.g, cfg.numerics.h_dry, cfg.material.rho_fluid, cfg.material.rho_solid,
                 cfg.material.mu_fine, cfg.material.mu_coarse, cfg.material.xi_fine, cfg.material.xi_coarse,
-                cfg.material.yield_N0_pa,
+                cfg.material.yield_N0_pa, *rheo,
             )
             _speed_cap[grid_core, block](
                 final_state, ng, nx, ny, cfg.numerics.speed_cap_ms,
@@ -1603,6 +1744,7 @@ def run_solver_cuda(cfg: SolverConfig, device_name: Optional[str] = None) -> Dic
     v_down, v_cross = terrain_velocity_components(fields["u"], fields["v"], dzdx_final, dzdy_final)
     metrics = {
         "backend": "cuda",
+        "rheology_model": str(cfg.rheology.model),
         "cuda_device": device_label,
         "cuda_block": [block[0], block[1]],
         "cuda_threads_1d": threads_1d,

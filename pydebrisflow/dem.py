@@ -104,6 +104,57 @@ def load_esri_ascii_cropped(cfg: GridConfig) -> Tuple[np.ndarray, np.ndarray, np
                 owner.close()
 
 
+
+def load_geotiff_cropped(cfg: GridConfig) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Load a north-up GeoTIFF DEM and return south-to-north cell-centre arrays.
+
+    The Marsicano reproducibility archive distributes the native 5 m TINITALY
+    raster as GeoTIFF.  Supporting it directly keeps the archive self-contained
+    and avoids requiring the much larger source ASCII grid.  The returned x/y
+    coordinates are cell centres, matching the ESRI-ASCII loader.
+    """
+    try:
+        import rasterio
+        from rasterio.windows import from_bounds
+    except Exception as exc:  # pragma: no cover - dependency is in requirements.txt
+        raise RuntimeError("GeoTIFF input requires rasterio") from exc
+
+    with rasterio.open(cfg.dem_path) as ds:
+        if ds.transform.b != 0.0 or ds.transform.d != 0.0:
+            raise RuntimeError("Rotated/sheared GeoTIFF DEMs are not supported")
+        if ds.transform.a <= 0.0 or ds.transform.e >= 0.0:
+            raise RuntimeError("GeoTIFF DEM must be north-up with positive x and negative y pixel size")
+
+        if cfg.clip_enabled:
+            left = max(float(cfg.xmin), float(ds.bounds.left))
+            right = min(float(cfg.xmax), float(ds.bounds.right))
+            bottom = max(float(cfg.ymin), float(ds.bounds.bottom))
+            top = min(float(cfg.ymax), float(ds.bounds.top))
+            if not (left < right and bottom < top):
+                raise RuntimeError("Requested clip does not intersect GeoTIFF DEM")
+            window = from_bounds(left, bottom, right, top, transform=ds.transform)
+            # Round to complete source pixels so the native 5 m grid is preserved.
+            window = window.round_offsets().round_lengths()
+            arr = ds.read(1, window=window, masked=True)
+            transform = ds.window_transform(window)
+        else:
+            arr = ds.read(1, masked=True)
+            transform = ds.transform
+
+        z_north_to_south = np.asarray(arr.filled(np.nan), dtype=np.float64)
+        invalid = ~np.isfinite(z_north_to_south)
+        if ds.nodata is not None and np.isfinite(ds.nodata):
+            invalid |= np.isclose(z_north_to_south, float(ds.nodata), rtol=0.0, atol=max(1e-8, abs(float(ds.nodata))*1e-7))
+        z_north_to_south[invalid] = np.nan
+
+        nrows, ncols = z_north_to_south.shape
+        x = transform.c + (np.arange(ncols, dtype=np.float64) + 0.5) * transform.a
+        y_north = transform.f + (np.arange(nrows, dtype=np.float64) + 0.5) * transform.e
+        y = y_north[::-1].copy()
+        z = np.flipud(z_north_to_south)
+        valid = np.isfinite(z)
+        return x, y, z.astype(np.float32), valid
+
 def resample_dem(
     x: np.ndarray,
     y: np.ndarray,
@@ -170,7 +221,12 @@ def load_or_build_dem(cfg: GridConfig) -> Tuple[np.ndarray, np.ndarray, np.ndarr
                     return d["x"], d["y"], d["zb"], d["valid"].astype(bool)
         except Exception:
             pass
-    x, y, z, valid = load_esri_ascii_cropped(cfg)
+
+    ext = os.path.splitext(cfg.dem_path)[1].lower()
+    if ext in (".tif", ".tiff"):
+        x, y, z, valid = load_geotiff_cropped(cfg)
+    else:
+        x, y, z, valid = load_esri_ascii_cropped(cfg)
     x, y, z, valid = resample_dem(x, y, z, cfg.target_dx, cfg.min_valid_fraction)
     cache.parent.mkdir(parents=True, exist_ok=True)
     tmp = cache.with_suffix(cache.suffix + ".tmp.npz")

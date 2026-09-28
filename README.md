@@ -1,11 +1,6 @@
-# **PyDebrisFlow2D**
-
+# PyDebrisFlow2D
 
 <div align="center">
-
-<img src="docs/images/PyDebrisFlow2D.png"  width="920">
-
-<br>
 
 **A conservative Python solver for variable-density debris flows, bed exchange, and grain-size segregation**
 
@@ -15,57 +10,60 @@
 ![License](https://img.shields.io/badge/License-Apache%202.0-D22128?logo=apache&logoColor=white)
 ![CPU](https://img.shields.io/badge/Backend-CPU-555555)
 ![CUDA](https://img.shields.io/badge/Backend-CUDA-76B900?logo=nvidia&logoColor=white)
+![Version](https://img.shields.io/badge/version-1.4.0-blue)
 ![Research software](https://img.shields.io/badge/Status-Research%20Software-7B2CBF)
 
 </div>
 
-**PyDebrisFlow2D** is an open-source Python finite-volume research solver for two-dimensional, depth-averaged debris-flow propagation on raster digital elevation models (DEMs). The implementation combines hydrostatic reconstruction, HLLC transport with local HLL fallback, optional MUSCL reconstruction, first- or second-order time integration, Voellmy basal resistance, variable-density constituent bookkeeping, conservative bed exchange, and a reduced two-layer grain-size segregation model.
+**PyDebrisFlow2D** is an open-source finite-volume research solver for two-dimensional, depth-averaged debris-flow propagation over raster digital elevation models (DEMs). It combines hydrostatic reconstruction, HLL/HLLC transport, optional MUSCL reconstruction, first- or second-order time integration, variable-density constituent bookkeeping, conservative bed exchange, grain-size segregation, and CPU/CUDA execution.
 
-The repository includes the solver, a unified verification suite, the Marsicano real-topography experiments used in the accompanying manuscript, and a standalone CPU/CUDA scaling benchmark.
+The repository contains the solver, numerical verification tests, the Marsicano real-topography experiments used for manuscript analyses, reviewer-oriented diagnostics, temporal and grid-sensitivity studies, and a matched CPU/CUDA benchmark.
 
-> **Research software.** PyDebrisFlow2D is intended for scientific research, numerical experimentation, teaching, and method development. It is not a certified operational forecasting, engineering, or early-warning system. Numerical stability and successful verification tests do not establish field predictive validity.
+> **Research software.** PyDebrisFlow2D is intended for scientific research, numerical experimentation, teaching, and method development. It is not a certified operational forecasting, engineering-design, emergency-management, or early-warning system.
 
-## Main capabilities
+## Highlights
 
-- Cartesian finite-volume solution on real or synthetic DEMs.
+- Cartesian finite-volume solver on synthetic or real DEMs.
 - Seven conservative state variables for mobile fluid, layered fine/coarse solids, and two horizontal mixture-momentum components.
-- Fully two-dimensional bulk velocity `(u, v)` plus terrain-aligned downslope and cross-slope diagnostics.
 - Hydrostatic reconstruction and topographic source balancing.
-- HLLC approximate Riemann solver with local HLL fallback near difficult wet/dry or inadmissible reconstructed states.
-- First-order or MUSCL spatial reconstruction with first-order Euler or SSPRK2 time integration.
-- Minmod, MC, van Leer, and superbee limiters.
-- Positivity safeguards, conservative repair, complete-stage fallback, and adaptive step retry.
-- Voellmy resistance with fine/coarse solid end-member parameters.
-- Conservative erosion/entrainment, class-resolved deposition, two-layer segregation, and diffusive remixing.
-- CPU execution through Numba and CUDA execution on compatible NVIDIA GPUs.
-- Solver metrics, material budgets, final-state NPZ files, maps, setup previews, and optional GIFs.
-- Publication-scale plotting typography shared by verification, Marsicano, CPU/CUDA, setup-preview, and solver-map outputs.
+- HLLC approximate Riemann solver with local HLL fallback for difficult wet/dry or inadmissible reconstructed states.
+- First-order or MUSCL reconstruction with Euler or SSPRK2 time integration.
+- Minmod, MC, van Leer, and superbee slope limiters.
+- Positivity safeguards, conservative repair, stage fallback, and adaptive step retry.
+- Variable-density mixture bookkeeping.
+- Conservative erosion/entrainment and class-resolved deposition.
+- Reduced two-layer grain-size segregation with diffusive remixing.
+- CPU execution through Numba and CUDA acceleration on compatible NVIDIA GPUs.
+- Publication-oriented maps, figures, GIFs, metrics, budgets, and final-state files.
+- Automated verification, grid/CFL studies, reviewer diagnostics, and performance benchmarking.
 
-## Important physical limitations
+## Basal-resistance closures
 
-PyDebrisFlow2D uses one common depth-averaged mixture-velocity vector for all transported constituents. The two Cartesian velocity components describe map-plane motion, not fluid-solid phase slip. The current formulation does not resolve phase-specific momentum, dynamic pore pressure, non-hydrostatic vertical acceleration, continuous vertical concentration profiles, individual boulder impacts, or three-dimensional free-fall dynamics.
+PyDebrisFlow2D exposes two **alternative** basal-resistance closures. They are selected per simulation and are not summed together.
 
-The fixed Cartesian grid also limits the representation of narrow channels and sharp evolving-bed features. Grid refinement cannot recover topographic information that is absent from the source DEM. For the distributed Marsicano case, the DEM is natively 5 m; therefore the reviewer-oriented real-topography sensitivity experiment uses six controlled resolutions, **20, 15, 10, 8, 6.5, and 5 m**, with 5 m as the finest terrain-informed calculation. No sub-5 m pseudo-refinement is used, because interpolation of the same 5 m DEM would add cells without adding independently observed geomorphic information.
+### Voellmy
 
-## Repository structure
+Voellmy resistance is the reference mobility closure for the distributed Marsicano benchmark, multiphysics ablation matrix, grid study, CFL study, and CPU/CUDA benchmark.
+
+### Concentration-aware O'Brien–Julien
+
+A concentration-dependent O'Brien–Julien-type quadratic resistance is also implemented. The recommended `continuous_asymptotic` transition provides a continuous carrier-fluid limit while preserving the selected concentration trends.
+
+The distributed short O'Brien–Julien Marsicano run is an **integration test**, not a field calibration or independent observational validation.
+
+## Physical scope and limitations
+
+PyDebrisFlow2D uses one common depth-averaged mixture-velocity vector for all transported constituents. The two Cartesian velocity components describe map-plane motion and do not represent fluid-solid phase slip.
+
+The current formulation does not resolve phase-specific momentum, dynamic pore pressure, non-hydrostatic vertical acceleration, continuous vertical concentration profiles, individual boulder impacts, or fully three-dimensional free-fall dynamics. Results should therefore be interpreted within the assumptions of a depth-averaged shallow-flow model.
+
+The fixed Cartesian grid also limits representation of narrow channels and sharp evolving-bed features. For the distributed Marsicano case, the terrain data have a native spacing of 5 m. Grid-sensitivity tests therefore use **20, 15, 10, 8, 6.5, and 5 m**, with 5 m as the finest terrain-informed calculation. Sub-5 m pseudo-refinement is intentionally avoided because it would interpolate the same source DEM without adding independent terrain information.
+
+## Repository layout
 
 ```text
 PyDebrisFlow2D/
-├── main.py
-├── marsicano_ablation.py
-├── test.py
-├── tests/
-│   └── test_cpu_cuda.py
-├── configs/
-│   ├── config_marsicano.yaml
-│   ├── config_marsicano_ablation.yaml
-│   └── config_tests.yaml
-├── data/
-│   ├── w46090_s10_Marsicano_UTM33_5m.asc
-│   ├── w46090_s10_Marsicano_UTM33_5m.prj
-│   └── ...
-├── pydebrisflow/
-│   ├── __init__.py
+├── pydebrisflow/                  # solver package
 │   ├── compute.py
 │   ├── config.py
 │   ├── constants.py
@@ -75,19 +73,42 @@ PyDebrisFlow2D/
 │   ├── numerics.py
 │   ├── outputs.py
 │   ├── physics.py
-│   └── simulation.py
-├── utils/
-│   ├── __init__.py
-│   └── prepare_dem.py
+│   ├── simulation.py
+│   └── __init__.py
+├── configs/
+│   ├── marsicano_voellmy.yaml
+│   ├── marsicano_multiphysics.yaml
+│   ├── obrien_julien_quick.yaml
+│   └── verification.yaml
+├── data/
+│   └── w46090_s10_Marsicano_UTM33_5m.tif
+├── tests/
+│   ├── test_cfl_regression.py
+│   ├── test_concentration_rheology.py
+│   ├── test_concentration_sweep.py
+│   ├── test_cpu_cuda_benchmark.py
+│   ├── test_oj_end_to_end.py
+│   ├── test_reviewer_regression.py
+│   └── test_windows_console_compat.py
+├── run_full_suite.py              # complete publication/reproducibility workflow
+├── run_simulation.py              # run one configured simulation
+├── run_marsicano_studies.py       # ablation + real-topography grid studies
+├── run_reviewer_diagnostics.py    # reviewer-requested diagnostics
+├── run_cfl_study.py               # temporal CFL robustness study
+├── verify_core.py                 # controlled numerical verification
+├── prepare_dem.py                 # DEM preparation helper
 ├── requirements.txt
+├── pyproject.toml
+├── CITATION.cff
+├── .gitignore
 └── LICENSE
 ```
 
-Generated `cache/` and `outputs/` directories are runtime products and can be removed when a clean rerun is required.
+`cache/`, `outputs/`, Python bytecode, and local virtual environments are generated locally and should not be committed.
 
 ## Installation
 
-Python 3.10 or later is recommended.
+Python **3.10 or later** is recommended.
 
 ```bash
 python -m venv .venv
@@ -112,55 +133,110 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-The distributed configurations request CUDA where appropriate but permit CPU fallback unless a benchmark explicitly disables it.
-
-## Primary entry points
+For editable development installation:
 
 ```bash
-python main.py
-python test.py
-python marsicano_ablation.py
-python tests/test_cpu_cuda.py
+python -m pip install -e .
 ```
 
-### `main.py`
-Runs a configured simulation. By default it loads `configs/config_marsicano.yaml`.
+## Quick start
+
+Run the default Marsicano Voellmy configuration:
 
 ```bash
-python main.py
-python main.py --config configs/config_marsicano.yaml
-python main.py --backend cpu
-python main.py --backend cuda
-python main.py --cuda-info
+python run_simulation.py --config configs/marsicano_voellmy.yaml --backend auto
 ```
 
-### `test.py`
-Runs the complete verification workflow and the matched Ritter first-/second-order accuracy-versus-cost analysis.
+Explicit CPU or CUDA execution:
 
 ```bash
-python test.py
+python run_simulation.py --config configs/marsicano_voellmy.yaml --backend cpu
+python run_simulation.py --config configs/marsicano_voellmy.yaml --backend cuda
 ```
 
-Verification products are written to:
-
-```text
-outputs/verification_figures/
-```
-
-The workflow includes HLLC consistency, lake-at-rest balance, segregation conservation, erosion/deposition budgets, density closure, wet/dry fallback, Ritter dam-break profiles, composition advection, open-boundary budgets, grid convergence, limiter sensitivity, time-step sensitivity, and Ritter O1/O2 timing. Figures use enlarged publication-oriented typography.
-
-### `marsicano_ablation.py`
-This existing Marsicano test script contains two complementary workflows; no separate grid-test source file is required.
-
-#### A. 16-run multiphysics ablation
-
-The standard command executes the full `2^3` erosion/deposition/segregation matrix for both numerical orders:
+Inspect the CUDA runtime/device configuration:
 
 ```bash
-python marsicano_ablation.py
+python run_simulation.py --cuda-info
 ```
 
-Physical cases:
+Run the short concentration-aware O'Brien–Julien integration case:
+
+```bash
+python run_simulation.py --config configs/obrien_julien_quick.yaml --backend auto
+```
+
+## Full publication suite
+
+The complete reproducibility workflow is driven by `run_full_suite.py`.
+
+```bash
+python run_full_suite.py --backend cuda --fresh
+```
+
+`--fresh` removes previous generated outputs and DEM caches before starting. The suite uses a fresh temporary working directory for expensive intermediate simulations and copies publication-facing products back into `outputs/`.
+
+The full workflow contains 12 stages:
+
+1. reviewer/GCI regression checks;
+2. CFL-driver regression checks;
+3. concentration-aware O'Brien–Julien regression checks;
+4. Windows redirected-console compatibility;
+5. dense concentration sweep;
+6. controlled numerical verification and Ritter accuracy/cost products;
+7. 16-case Marsicano Voellmy multiphysics ablation matrix;
+8. Marsicano real-topography grid/GCI/bottleneck study;
+9. reviewer-requested physical and parameter diagnostics;
+10. native-5 m CFL robustness study;
+11. short O'Brien–Julien real-DEM end-to-end integration check;
+12. matched CPU/CUDA performance benchmark.
+
+Useful alternatives:
+
+```bash
+# Print all commands without running simulations
+python run_full_suite.py --backend cuda --fresh --dry-run
+
+# Short software-wiring check; not publication evidence
+python run_full_suite.py --backend cuda --fresh --smoke --skip-performance
+
+# Full scientific suite without hardware benchmarking
+python run_full_suite.py --backend cuda --fresh --skip-performance
+```
+
+At completion, inspect the products written under `outputs/`, including the suite summary, artifact index, logs, tables, and publication figures.
+
+## Numerical verification
+
+Run the controlled verification suite with:
+
+```bash
+python verify_core.py --backend auto
+```
+
+The suite covers the principal numerical building blocks and repository configurations, including HLL/HLLC behavior, balance and wet/dry handling, transport/reconstruction behavior, Ritter dam-break accuracy/cost diagnostics, and relevant conservation checks.
+
+## Marsicano studies
+
+### Multiphysics ablation
+
+Run the full first-/second-order multiphysics matrix:
+
+```bash
+python run_marsicano_studies.py --backend cuda
+```
+
+Selected examples:
+
+```bash
+python run_marsicano_studies.py --dry-run
+python run_marsicano_studies.py --orders O2
+python run_marsicano_studies.py --cases P000 EDS111
+python run_marsicano_studies.py --restart
+python run_marsicano_studies.py --no-resume
+```
+
+The eight physical combinations are:
 
 | ID | Erosion | Deposition | Segregation |
 |---|---:|---:|---:|
@@ -173,245 +249,127 @@ Physical cases:
 | `DS011` | off | on | on |
 | `EDS111` | on | on | on |
 
-Each case is run as O1 and O2. The continuously updated table is:
+Each physical case can be evaluated with first- and second-order numerics.
 
-```text
-outputs/Marsicano_Ablation/marsicano_ablation_results.csv
-```
+### Real-topography grid sensitivity
 
-Useful options:
+Run only the Marsicano grid-sensitivity experiment:
 
 ```bash
-python marsicano_ablation.py --dry-run
-python marsicano_ablation.py --orders O2
-python marsicano_ablation.py --cases P000 EDS111
-python marsicano_ablation.py --backend cpu
-python marsicano_ablation.py --backend cuda
-python marsicano_ablation.py --restart
-python marsicano_ablation.py --no-resume
+python run_marsicano_studies.py --grid-sensitivity-only --backend cuda
 ```
 
-#### B. Marsicano 20/15/10/8/6.5/5 m real-topography grid-sensitivity experiment
-
-To answer the real-topography grid-resolution reviewer comment without creating a new test source file, run:
-
-```bash
-python marsicano_ablation.py --grid-sensitivity-only
-```
-
-The experiment loads the propagation-only `configs/config_marsicano.yaml`, uses nominal second-order numerics by default, and runs the same Marsicano scenario at:
+The default terrain-informed sequence is:
 
 ```text
 20 m -> 15 m -> 10 m -> 8 m -> 6.5 m -> 5 m
 ```
 
-The 5 m run is the finest available terrain-informed solution because the distributed DEM itself has 5 m spacing. Coarser DEMs are generated from the native DEM through the repository's existing DEM-resampling path. Sub-5 m pseudo-refinement is intentionally rejected.
-
-The workflow reports for each spacing:
-
-- maximum final depth and speed;
-- wet area;
-- mobile volume;
-- maximum distance from the release centroid;
-- solver wall time and step count;
-- depth RMSE relative to the 5 m solution after diagnostic interpolation to the 5 m cell centres;
-- speed RMSE relative to the 5 m solution;
-- wet-support IoU relative to the 5 m solution.
-
-The interpolation is used **only for cross-grid diagnostics**. It does not create a finer DEM and is never used by the solver.
-
-Outputs are written under:
-
-```text
-outputs/Marsicano_Ablation/grid_sensitivity/
-```
-
-Key products:
-
-```text
-marsicano_grid_sensitivity_results.csv
-marsicano_grid_sensitivity_results.json
-marsicano_grid_depth_comparison.png
-marsicano_grid_depth_comparison.pdf
-marsicano_grid_sensitivity_metrics.png
-marsicano_grid_sensitivity_metrics.pdf
-```
-
-Each spacing also receives the normal final solver maps using manuscript-scale typography.
-
-For a quick smoke test only:
+A short smoke test can be executed with:
 
 ```bash
-python marsicano_ablation.py --grid-sensitivity-only --t-end 2
+python run_marsicano_studies.py --grid-sensitivity-only --t-end 2 --backend cuda
 ```
 
-For the manuscript/reviewer result, use the full default final time of 275 s.
+For publication/reviewer results, use the full configured final time rather than the smoke-test setting.
 
-To execute the 16-run ablation and then the grid-sensitivity experiment in one command:
+## Reviewer-oriented diagnostics
+
+Synthetic and parameter-sensitivity diagnostics can be run with:
 
 ```bash
-python marsicano_ablation.py --grid-sensitivity
+python run_reviewer_diagnostics.py --all --backend cuda
 ```
+
+The hydrostatic/curvature diagnostic additionally requires a solver `final_state.npz` supplied through `--hydrostatic-state`.
+
+## CFL robustness
+
+Run the native-5 m temporal CFL study with:
+
+```bash
+python run_cfl_study.py --backend cuda
+```
+
+The default tested CFL values are `0.25`, `0.15`, `0.10`, and `0.075` at a 5 m grid spacing and 275 s final time.
 
 ## CPU/CUDA benchmark
 
-The hardware benchmark remains separate from physical/grid sensitivity because it answers a different question: implementation performance.
+Run the standalone matched hardware benchmark with:
 
 ```bash
-python tests/test_cpu_cuda.py --dx 20 10 5 --t-end 20 --order 2
+python tests/test_cpu_cuda_benchmark.py --dx 20 10 5 --t-end 20 --order 2
 ```
 
-Products are written to:
+The benchmark compares matched solver configurations and reports wall time, timing per accepted step, speedup, and implementation-level memory estimates. CUDA-to-CPU fallback is disabled during GPU timing so that the reported GPU measurements correspond to actual CUDA execution.
 
-```text
-outputs/CPU_CUDA_Benchmark/
-```
+## Fast regression checks
 
-The benchmark warms each backend, disables CUDA-to-CPU fallback during GPU timing, and reports wall time, time per accepted step, speedup, and implementation-level working-array memory estimates.
-
-## Plotting and figure typography
-
-Reviewer-oriented plotting has been standardized across the project. The following outputs now use enlarged manuscript-scale labels, tick labels, legends, titles, and markers:
-
-- all figures generated by `test.py`;
-- Ritter accuracy-versus-cost figures;
-- all solver final maps and GIF frames from `pydebrisflow/outputs.py`;
-- setup and interactive geometry previews from `pydebrisflow/geometry.py`;
-- Marsicano order-cost and grid-sensitivity figures from `marsicano_ablation.py`;
-- CPU/CUDA performance figures from `tests/test_cpu_cuda.py`.
-
-This keeps figure symbols legible after insertion at journal column/page width and directly addresses the reviewer request concerning Figures 3, 4, and related plots.
-
-## Configuration notes
-
-YAML configuration is divided into these principal blocks:
-
-- `compute`: backend, CPU threads, CUDA device/block settings, fallback policy;
-- `grid`: DEM, cache, target spacing, clipping, valid-cell threshold;
-- `numerics`: gravity, CFL, maximum time step, final time, order, limiter, flux, boundaries, positivity and fallback controls;
-- `material`: intrinsic densities, initial composition, Voellmy end-member parameters, grain properties;
-- `friction`: uniform or region-specific resistance;
-- `release`: geometry, volume, composition, initial velocity;
-- `erosion`, `deposition`, `segregation`: source-term parameters;
-- `output`: snapshots, PNG/GIF generation, progress, hillshade, setup preview.
-
-`configs/config_marsicano_ablation.yaml` additionally contains top-level `ablation` and `grid_sensitivity` sections consumed by `marsicano_ablation.py`.
-
-## Main simulation outputs
-
-Depending on the configuration, a run may create:
-
-- `config_resolved.yaml`;
-- `runtime_geometry.yaml` and `interactive_setup.png`;
-- `state_*.npz` snapshots;
-- final maps for depth, speed, Cartesian velocities, terrain-aligned velocities, density, solid fraction, coarse fraction, and segregation;
-- `depth_evolution.gif`;
-- `metrics.json`;
-- `final_state.npz`.
-
-Do not interpret maps alone. Review conservation residuals, material budgets, fallback counts, retries, wet/dry behavior, mesh/time-step sensitivity, and the physical assumptions relevant to the application.
-
-
-## Ritter first vs second order
-
-Run the existing verification workflow:
+The following checks do not rerun the complete publication suite:
 
 ```bash
-python test.py
+python tests/test_reviewer_regression.py
+python tests/test_concentration_rheology.py
+python tests/test_concentration_sweep.py
+python tests/test_cfl_regression.py
+python tests/test_windows_console_compat.py
 ```
 
-In addition to the original verification products, `test.py` now records solver wall time and time per step for each Ritter resolution and writes:
-
-```text
-outputs/verification_figures/ritter_order_tradeoff.csv
-outputs/verification_figures/figure_9_ritter_accuracy_vs_cost.png
-```
-
-The table pairs O1 and O2 at identical resolution and reports the O2/O1 runtime ratio together with the O1/O2 reduction in analytical Ritter error.
-
-## Marsicano first vs second order
-
-Run the existing Marsicano workflow, preferably from a clean timing run:
+The O'Brien–Julien end-to-end test executes the real solver over the Marsicano DEM and is therefore heavier:
 
 ```bash
-python marsicano_ablation.py --restart
+python tests/test_oj_end_to_end.py --backend cuda --output-root outputs/oj_check
 ```
 
-The normal `marsicano_ablation_results.csv` now contains solver wall time, time per step, and O1/O2 cost ratios. The workflow additionally writes:
+## Configuration overview
 
-```text
-outputs/Marsicano_Ablation/marsicano_order_tradeoff.csv
-outputs/Marsicano_Ablation/marsicano_order_runtime.png
-outputs/Marsicano_Ablation/marsicano_order_cost_ratio.png
-```
+The YAML files expose the main model and numerical controls, including:
 
-These quantities are interpreted as numerical-order sensitivity and computational cost; the O1/O2 field differences are not described as observational error.
-
-## CPU vs CUDA
-
-Run the standalone hardware test:
-
-```bash
-python tests/test_cpu_cuda.py --dx 20 10 5 --t-end 20 --order 2
-```
-
-Its outputs are isolated under `outputs/CPU_CUDA_Benchmark/`.
-
+- `compute`: backend, CPU threading, CUDA device/block settings, fallback policy;
+- `grid`: DEM source, cache, target spacing, clipping, and valid-cell threshold;
+- `numerics`: gravity, CFL, maximum time step, final time, numerical order, limiter, flux, boundaries, positivity, and fallback controls;
+- `material`: intrinsic densities, initial composition, resistance parameters, and grain properties;
+- resistance/rheology selection;
+- `release`: release geometry, volume, composition, and initial velocity;
+- `erosion`, `deposition`, `segregation`: multiphysics source-term parameters;
+- `output`: snapshots, PNG/GIF generation, progress logging, hillshade, and setup previews.
 
 ## Reproducible scientific use
 
-For each published or shared simulation, retain:
+For every published or shared simulation, retain at least:
 
 - the exact PyDebrisFlow2D release or commit;
 - the complete input and resolved YAML configurations;
-- the original and prepared DEMs;
-- the DEM coordinate reference system and processing history;
-- release and friction geometries;
+- the original/prepared DEM and its coordinate reference system;
+- release and resistance geometries;
 - initial and boundary conditions;
 - rheological and multiphysics parameters;
-- selected CPU or CUDA backend and device information;
+- CPU/CUDA backend and device information;
 - Python and dependency versions;
 - relevant random seeds;
-- conservation diagnostics;
+- conservation and material-budget diagnostics;
 - mesh and time-step sensitivity results;
-- verification results;
-- any local code modifications.
+- numerical verification results;
+- any local source-code modifications.
 
-The implementation includes hydrostatic reconstruction, HLL/HLLC approximate Riemann solvers, MUSCL reconstruction, SSPRK time integration, Voellmy-type basal resistance, Ferguson–Church settling, and a conservative two-layer representation for segregation and remixing. Cite the numerical, physical, and case-study references appropriate to the specific application.
+Numerical stability or successful completion of the verification suite does not by itself establish field predictive validity. Marsicano products distributed or reproduced by this repository should be described as numerical benchmark/back-analysis products unless independent field observations are used for validation.
 
 ## Citation
 
-Citation metadata are provided in `CITATION.cff`.
+Citation metadata are provided in [`CITATION.cff`](CITATION.cff).
 
 When using PyDebrisFlow2D in scientific work:
 
-1. cite the exact software release used in the analysis;
+1. cite the exact software release or commit used in the analysis;
 2. archive the associated configuration and input data when possible;
-3. cite the related peer-reviewed scientific article when available.
+3. cite the associated peer-reviewed scientific article when available.
 
-Keep the version and release date in `CITATION.cff` synchronized with the version exposed by `pydebrisflow.__version__` before publishing a new release.
+The release metadata in `CITATION.cff` should remain synchronized with `pydebrisflow.__version__`.
 
 ## License
 
-PyDebrisFlow2D is distributed under the Apache License, Version 2.0. See the `LICENSE` file for the complete terms.
+PyDebrisFlow2D is distributed under the **Apache License 2.0**. See [`LICENSE`](LICENSE) for the complete terms.
 
-The license permits use, modification, and redistribution, including commercial use, subject to its conditions. Redistributed copies must preserve the applicable copyright, license, attribution, and notice information.
+## Disclaimer
 
-## Research software, safety, and limitation-of-liability disclaimer
-
-PyDebrisFlow2D is research software intended for scientific research, numerical experimentation, education, and method development. It is **not** a certified engineering tool, operational forecasting system, emergency-management platform, hazard-warning system, early-warning system, or other safety-critical system.
-
-Simulation outputs depend on model assumptions, input data, digital elevation model quality, release geometry, initial and boundary conditions, material and rheological parameters, source-term parameterizations, calibration, numerical resolution, time-step selection, software dependencies, hardware, and user-defined configurations. Numerical stability, successful execution, or satisfaction of the included verification tests does not establish that a simulated scenario is physically correct or suitable for a particular real-world application.
-
-Results must be independently reviewed and validated by appropriately qualified professionals before being used in engineering design, hazard assessment, territorial or land-use planning, emergency management, regulatory procedures, or decisions affecting people, property, infrastructure, or the environment. The software and its outputs must not be used as the sole basis for safety-critical or operational decisions.
-
-PyDebrisFlow2D is provided on an **“AS IS”** and **“AS AVAILABLE”** basis, without warranties or conditions of any kind, whether express, implied, statutory, or otherwise, including, without limitation, warranties of accuracy, reliability, completeness, merchantability, fitness for a particular purpose, non-infringement, or regulatory compliance, to the maximum extent permitted by applicable law.
-
-The authors and contributors do not guarantee that the software or its outputs are accurate, complete, error-free, suitable for operational deployment, or capable of reproducing any specific natural event. Results may be affected by incomplete or inaccurate data, uncertain initial conditions and material properties, model simplifications, numerical approximations, calibration and validation limitations, hardware or dependency differences, programming errors, and unexpected runtime behavior.
-
-Users are solely responsible for determining whether the software is suitable for their intended purpose, selecting and verifying input data and parameters, reviewing and validating all results, obtaining any required professional or regulatory approvals, and complying with applicable laws, professional standards, institutional procedures, and safety requirements.
-
-To the maximum extent permitted by applicable law, the authors and contributors shall not be liable for any direct, indirect, incidental, special, exemplary, or consequential damages, or for any loss of data, profits, business, property, or opportunity, arising from the use of, inability to use, or reliance on the software or its outputs, regardless of the legal theory asserted and even if advised of the possibility of such damages.
-
-This disclaimer supplements the project documentation but does not replace, amend, or override the terms of the Apache License 2.0. No disclaimer or open-source license excludes liability where such exclusion is prohibited by applicable law.
-
+PyDebrisFlow2D is provided for scientific research and education. Simulation results depend on model assumptions, input data, DEM quality, release conditions, rheological and source-term parameters, numerical resolution, software dependencies, and hardware. Outputs must be independently reviewed and validated before use in engineering design, hazard assessment, planning, emergency management, regulatory procedures, or any decision affecting people, property, infrastructure, or the environment.

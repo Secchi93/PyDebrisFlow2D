@@ -9,6 +9,7 @@ from .config import (
     FrictionConfig,
     GridConfig,
     MaterialConfig,
+    RheologyConfig,
     NumericsConfig,
     OutputConfig,
     ReleaseConfig,
@@ -18,7 +19,7 @@ from .config import (
     validate_config,
 )
 from .constants import *
-from .dem import load_esri_ascii_cropped, load_or_build_dem, resample_dem
+from .dem import load_esri_ascii_cropped, load_geotiff_cropped, load_or_build_dem, resample_dem
 from .geometry import (
     click_polygon,
     polygon_mask,
@@ -54,7 +55,9 @@ from .physics import (
     apply_segregation,
     apply_speed_cap,
     apply_voellmy_friction,
+    apply_basal_resistance,
     basal_shear,
+    obrien_julien_properties,
     build_release,
     composition_fields,
     ferguson_church_settling_velocity,
@@ -64,4 +67,4 @@ from .physics import (
 )
 from .simulation import run_solver
 
-__version__ = "1.1.4"
+__version__ = "1.4.0"

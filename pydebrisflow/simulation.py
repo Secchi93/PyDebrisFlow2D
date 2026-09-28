@@ -188,6 +188,7 @@ def run_solver_cpu(cfg: SolverConfig) -> Dict[str, Any]:
     elapsed_wall_s = time.perf_counter() - wall_start
     metrics = {
         "backend": "cpu",
+        "rheology_model": str(cfg.rheology.model),
         "cpu_threads": cpu_threads,
         "elapsed_wall_s": float(elapsed_wall_s),
         "cpu_array_memory_mib_estimate": float(cpu_array_memory_mib_estimate),

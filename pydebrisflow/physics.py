@@ -87,12 +87,129 @@ def composition_fields(
                 wet=wet, u=u, v=v, speed=speed, cs=cs, fc=fc, rho=rho, mu=mu, xi=xi)
 
 
+
+def _rheology_model(cfg: SolverConfig) -> str:
+    model = str(cfg.rheology.model).strip().lower().replace("-", "_")
+    return "obrien_julien" if model in ("obrien_julien", "oj") else "voellmy"
+
+
+def obrien_julien_properties(fields: Dict[str, np.ndarray], cfg: SolverConfig) -> Dict[str, np.ndarray]:
+    """Return concentration-dependent O'Brien-Julien rheological properties.
+
+    Literature basis
+    ----------------
+    O'Brien & Julien (1988) measured exponential concentration dependence for
+    mud-matrix yield stress and dynamic viscosity. O'Brien, Julien & Fullerton
+    (1993) embedded that rheology in a depth-averaged quadratic-resistance
+    routing model. The FLO-2D formulation writes
+
+        tau_y = alpha_y exp(beta_y C_v)
+        eta   = alpha_eta exp(beta_eta C_v)
+
+    with a depth-integrated yield + viscous + turbulent/dispersive friction
+    slope. The empirical alpha/beta coefficients are material-specific.
+
+    PyDebrisFlow2D provides two interpretations of the empirical laws. The
+    legacy ``literature_piecewise`` option reproduces a clear-water/debris-flow
+    regime switch used in EDDA-style applications. The recommended
+    ``continuous_asymptotic`` option instead preserves the O'Brien-Julien
+    exponential concentration sensitivity as an *excess* above the carrier-
+    fluid limit:
+
+        eta(C)   = eta_w + alpha_eta [exp(beta_eta C) - 1]
+        tau_y(C) =         alpha_y   [exp(beta_y C)   - 1]
+
+    and anchors the turbulent/dispersive roughness continuously to n_w at
+    zero solids. This anchoring is a PyDebrisFlow2D regularization, not a
+    verbatim equation from O'Brien & Julien. Its asymptotes are constrained by
+    suspension-rheology literature: Boyer, Guazzelli & Pouliquen (2011) recover
+    the carrier-fluid/Einstein limit at low particle volume fraction and a
+    continuously increasing frictional/hydrodynamic resistance toward dense
+    suspension; Pellegrino & Schippa (2018) likewise describe debris and
+    hyperconcentrated mixtures with concentration as a continuous state
+    variable. The construction removes the artificial resistance jump produced
+    by a hard C_v threshold while retaining the calibrated O'Brien-Julien slopes.
+    """
+    r = cfg.rheology
+    h = fields["h"]
+    hs = fields["hs"]
+    hc = fields["hc"]
+    cs = np.clip(fields["cs"], 0.0, cfg.material.max_solid_fraction)
+    fine = np.maximum(hs - hc, 0.0)
+    cv_fine = np.zeros_like(h)
+    wet = h > cfg.numerics.h_dry
+    cv_fine[wet] = fine[wet] / h[wet]
+    basis = str(r.oj_concentration_basis).strip().lower()
+    cv_rheo = cs if basis == "total" else cv_fine
+
+    # Empirical O'Brien-Julien coefficients are commonly tabulated in poise
+    # and dyn/cm^2. Convert to SI before applying the depth-integrated source.
+    alpha_eta_si = 0.1 * float(r.oj_alpha_viscosity_poise)  # Pa s
+    alpha_tau_si = 0.1 * float(r.oj_alpha_yield_dyn_cm2)    # Pa
+    eta_raw = alpha_eta_si * np.exp(float(r.oj_beta_viscosity) * cv_rheo)
+    tau_raw = alpha_tau_si * np.exp(float(r.oj_beta_yield) * cv_rheo)
+
+    transition = str(r.oj_transition_mode).strip().lower()
+    if transition in ("literature_piecewise", "piecewise"):
+        # Literature-backed clear-water / hyperconcentrated switch used in
+        # EDDA-style implementations: Manning below Cv=0.20, O'Brien-Julien
+        # quadratic rheology above the threshold. The threshold is configurable
+        # because the empirical classification is not universal.
+        clear = cs < float(r.oj_clear_water_cv_threshold)
+        eta = np.where(clear, float(r.oj_water_dynamic_viscosity_pas), eta_raw)
+        tau_y = np.where(clear, 0.0, tau_raw)
+        n_debris = float(r.oj_water_manning_n) * float(r.oj_turbulent_b) * np.exp(float(r.oj_turbulent_m) * cs)
+        n_td = np.where(clear, float(r.oj_water_manning_n), n_debris)
+    elif transition in ("continuous_asymptotic", "regularized"):
+        # Literature-constrained asymptotic anchoring.  O'Brien-Julien supplies
+        # the exponential concentration sensitivity; the zero-solids limits are
+        # imposed from suspension rheology (eta -> carrier-fluid viscosity,
+        # tau_y -> 0) instead of introducing a discontinuous regime threshold.
+        eta = float(r.oj_water_dynamic_viscosity_pas) + alpha_eta_si * np.expm1(float(r.oj_beta_viscosity) * cv_rheo)
+        tau_y = alpha_tau_si * np.expm1(float(r.oj_beta_yield) * cv_rheo)
+        # Treat the published exponential roughness factor as a concentration-
+        # dependent *excess* over clear-water roughness. This is continuous and
+        # differentiable at cs=0 and preserves the empirical exponential slope.
+        n_td = float(r.oj_water_manning_n) * (
+            1.0 + float(r.oj_turbulent_b) * np.expm1(float(r.oj_turbulent_m) * cs)
+        )
+    else:
+        eta = eta_raw
+        tau_y = tau_raw
+        n_td = float(r.oj_water_manning_n) * float(r.oj_turbulent_b) * np.exp(float(r.oj_turbulent_m) * cs)
+
+    tau_y = np.where(wet, tau_y, 0.0)
+    eta = np.where(wet, eta, float(r.oj_water_dynamic_viscosity_pas))
+    n_td = np.where(wet, n_td, float(r.oj_water_manning_n))
+    return {
+        "cv_rheology": cv_rheo,
+        "cv_total": cs,
+        "yield_stress_pa": tau_y,
+        "dynamic_viscosity_pas": eta,
+        "n_td": n_td,
+    }
+
 def basal_shear(fields: Dict[str, np.ndarray], cosbeta: np.ndarray, cfg: SolverConfig) -> np.ndarray:
+    """Basal shear stress for the selected resistance closure."""
     n, m = cfg.numerics, cfg.material
     h = fields["h"]
     mass = fields["mass"]
     rho = fields["rho"]
     speed = fields["speed"]
+
+    if _rheology_model(cfg) == "obrien_julien":
+        oj = obrien_julien_properties(fields, cfg)
+        hh = np.maximum(h, n.h_dry)
+        # O'Brien-Julien/FLO-2D depth-integrated quadratic resistance:
+        # tau_b = tau_y + K eta V/(8h) + rho g n_td^2 V^2 / h^(1/3).
+        tau = (
+            oj["yield_stress_pa"]
+            + float(cfg.rheology.oj_laminar_K) * oj["dynamic_viscosity_pas"] * speed / (8.0 * hh)
+            + rho * n.g * oj["n_td"] ** 2 * speed * speed / np.power(hh, 1.0 / 3.0)
+        )
+        tau[h <= n.h_dry] = 0.0
+        return tau
+
     mu = fields["mu"]
     xi = fields["xi"]
     normal = mass * n.g * cosbeta
@@ -111,12 +228,46 @@ def apply_voellmy_friction(
     mu_override: Optional[np.ndarray] = None,
     xi_override: Optional[np.ndarray] = None,
 ) -> None:
+    """Apply the selected basal-resistance source step.
+
+    The function name is retained for API compatibility. With
+    ``rheology.model=obrien_julien`` it applies the concentration-aware
+    O'Brien-Julien quadratic closure instead of Voellmy resistance.
+    """
     n, m = cfg.numerics, cfg.material
     f = composition_fields(Uc, cfg, mu_override, xi_override)
-    h, mass, speed, mu, xi = f["h"], f["mass"], f["speed"], f["mu"], f["xi"]
+    h, mass, speed = f["h"], f["mass"], f["speed"]
     wet = f["wet"] & (speed > 0.0)
     if not np.any(wet):
         return
+
+    if _rheology_model(cfg) == "obrien_julien":
+        oj = obrien_julien_properties(f, cfg)
+        hh = np.maximum(h, n.h_dry)
+        rho = np.maximum(f["rho"], 1.0e-30)
+        # ds/dt = -(a + c*s + b*s^2), with yield treated as a stopping
+        # threshold and the linear/quadratic terms treated by backward Euler.
+        a = oj["yield_stress_pa"] / np.maximum(mass, 1.0e-30)
+        c = float(cfg.rheology.oj_laminar_K) * oj["dynamic_viscosity_pas"] / (8.0 * rho * hh * hh)
+        b = n.g * oj["n_td"] ** 2 / np.power(hh, 4.0 / 3.0)
+        rem = speed - dt * a
+        s1 = np.zeros_like(speed)
+        moving = wet & (rem > 0.0)
+        if np.any(moving):
+            A = dt * b[moving]
+            B = 1.0 + dt * c[moving]
+            R = rem[moving]
+            disc = np.sqrt(B * B + 4.0 * A * R)
+            # Cancellation-safe positive quadratic root; also valid as A->0.
+            vals = np.where(A > 1.0e-14, 2.0 * R / (B + disc), R / B)
+            s1[moving] = vals
+        fac = np.zeros_like(speed)
+        fac[wet] = s1[wet] / np.maximum(speed[wet], 1.0e-30)
+        Uc[MX] *= fac
+        Uc[MY] *= fac
+        return
+
+    mu, xi = f["mu"], f["xi"]
     normal = mass * n.g * cosbeta
     yield_acc = np.zeros_like(h)
     if m.yield_N0_pa > 0.0:
@@ -140,6 +291,18 @@ def apply_voellmy_friction(
     fac[wet] = s1[wet] / np.maximum(s0[wet], 1.0e-30)
     Uc[MX] *= fac
     Uc[MY] *= fac
+
+
+def apply_basal_resistance(
+    Uc: np.ndarray,
+    cosbeta: np.ndarray,
+    dt: float,
+    cfg: SolverConfig,
+    mu_override: Optional[np.ndarray] = None,
+    xi_override: Optional[np.ndarray] = None,
+) -> None:
+    """Preferred closure-neutral alias for :func:`apply_voellmy_friction`."""
+    apply_voellmy_friction(Uc, cosbeta, dt, cfg, mu_override, xi_override)
 
 
 def ferguson_church_settling_velocity(d: float, rho_s: float, rho_f: float, nu: float, g: float = 9.81, C1: float = 18.0, C2: float = 1.0) -> float:

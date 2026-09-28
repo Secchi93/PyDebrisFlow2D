@@ -91,6 +91,61 @@ class MaterialConfig:
     kinematic_viscosity_m2s: float = 1.0e-6
 
 
+
+
+@dataclass
+class RheologyConfig:
+    """Basal resistance closure.
+
+    ``voellmy`` retains the original composition-dependent Voellmy law.
+    ``obrien_julien`` activates a concentration-aware quadratic mudflow
+    resistance based on O'Brien & Julien (1988) and O'Brien, Julien &
+    Fullerton (1993). The empirical coefficients are material specific and
+    must be calibrated for predictive field use.
+
+    The recommended continuous-asymptotic mode enforces zero yield stress
+    and carrier-fluid viscosity/roughness as sediment concentration tends to
+    zero while retaining the O'Brien-Julien exponential concentration
+    dependence as an excess above the clear-water baseline. This is an
+    explicitly documented PyDebrisFlow2D regularization constrained by the
+    low-concentration suspension limit of Boyer et al. (2011), rather than a
+    claim that O'Brien & Julien published the shifted equations themselves.
+    """
+
+    model: str = "voellmy"  # voellmy | obrien_julien
+
+    # O'Brien-Julien empirical laws. Defaults reproduce the Aspen Pit 2
+    # coefficient set tabulated from O'Brien & Julien (1988) in FLO-2D
+    # documentation; they are demonstration defaults, not Marsicano
+    # calibration values. Original units are retained in the configuration
+    # and converted internally to SI (1 poise = 0.1 Pa s; 1 dyn/cm^2 = 0.1 Pa).
+    oj_alpha_viscosity_poise: float = 0.0538
+    oj_beta_viscosity: float = 14.5
+    oj_alpha_yield_dyn_cm2: float = 2.72
+    oj_beta_yield: float = 10.4
+
+    # Depth-integrated quadratic resistance parameters. K=24 is the smooth,
+    # wide-rectangular laminar reference used in the FLO-2D formulation; field
+    # values can be much larger and should be calibrated.
+    oj_laminar_K: float = 24.0
+    oj_water_manning_n: float = 0.030
+    oj_turbulent_b: float = 0.0538
+    oj_turbulent_m: float = 6.0896
+
+    # Clear-water limit and interpretation of the concentration entering the
+    # yield/viscosity exponentials. ``fine_matrix`` follows the experimental
+    # basis of the O'Brien-Julien mud-matrix data; ``total`` uses all solids.
+    oj_water_dynamic_viscosity_pas: float = 1.0e-3
+    # Transition between clear-water and debris/hyperconcentrated resistance.
+    # ``continuous_asymptotic`` is recommended: it keeps the O'Brien-Julien
+    # exponential concentration slopes but anchors them continuously to the
+    # carrier-fluid limit at cs -> 0. ``regularized`` is retained as an alias.
+    # ``literature_piecewise`` reproduces the legacy hard threshold used by
+    # EDDA-style applications; ``raw`` applies the empirical exponentials at all Cv.
+    oj_transition_mode: str = "continuous_asymptotic"  # continuous_asymptotic | literature_piecewise | regularized | raw
+    oj_clear_water_cv_threshold: float = 0.20
+    oj_concentration_basis: str = "fine_matrix"  # fine_matrix | total
+
 @dataclass
 class FrictionConfig:
     """Spatial overrides for the composition-dependent Voellmy coefficients.
@@ -180,6 +235,7 @@ class SolverConfig:
     grid: GridConfig = field(default_factory=GridConfig)
     numerics: NumericsConfig = field(default_factory=NumericsConfig)
     material: MaterialConfig = field(default_factory=MaterialConfig)
+    rheology: RheologyConfig = field(default_factory=RheologyConfig)
     friction: FrictionConfig = field(default_factory=FrictionConfig)
     release: ReleaseConfig = field(default_factory=ReleaseConfig)
     erosion: ErosionConfig = field(default_factory=ErosionConfig)
@@ -203,7 +259,7 @@ def load_config(path: str) -> SolverConfig:
     cfg = SolverConfig()
     with open(path, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
-    for section in ("compute", "grid", "numerics", "material", "friction", "release", "erosion", "deposition", "segregation", "output"):
+    for section in ("compute", "grid", "numerics", "material", "rheology", "friction", "release", "erosion", "deposition", "segregation", "output"):
         if section in data:
             _update_dataclass(getattr(cfg, section), data[section] or {})
     base = os.path.dirname(os.path.abspath(path))
@@ -254,6 +310,21 @@ def validate_config(cfg: SolverConfig) -> None:
         raise ValueError("solid fractions are inconsistent")
     if not (0.0 <= m.initial_coarse_fraction <= 1.0):
         raise ValueError("initial_coarse_fraction must be in [0,1]")
+    r = cfg.rheology
+    rmodel = str(r.model).strip().lower()
+    if rmodel not in ("voellmy", "obrien_julien", "obrien-julien", "oj"):
+        raise ValueError("rheology.model must be voellmy or obrien_julien")
+    if str(r.oj_concentration_basis).strip().lower() not in ("fine_matrix", "fine", "total"):
+        raise ValueError("rheology.oj_concentration_basis must be fine_matrix or total")
+    if str(r.oj_transition_mode).strip().lower() not in ("continuous_asymptotic", "continuous", "literature_piecewise", "piecewise", "regularized", "raw"):
+        raise ValueError("rheology.oj_transition_mode must be continuous_asymptotic, literature_piecewise, regularized, or raw")
+    if not (0.0 <= float(r.oj_clear_water_cv_threshold) <= 1.0):
+        raise ValueError("rheology.oj_clear_water_cv_threshold must lie in [0, 1]")
+    for name in ("oj_alpha_viscosity_poise", "oj_beta_viscosity", "oj_alpha_yield_dyn_cm2", "oj_beta_yield",
+                 "oj_laminar_K", "oj_water_manning_n", "oj_turbulent_b", "oj_turbulent_m",
+                 "oj_water_dynamic_viscosity_pas"):
+        if float(getattr(r, name)) < 0.0:
+            raise ValueError(f"rheology.{name} must be non-negative")
     if not (0.0 < e.bed_porosity < 1.0):
         raise ValueError("bed_porosity must be in (0,1)")
     if cfg.release.volume_m3 <= 0.0:
