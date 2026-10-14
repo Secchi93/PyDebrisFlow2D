@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pydebrisflow2d"
-version = "1.4.0"
+version = "1.0.0"
 description = "A conservative Python finite-volume research solver for variable-density debris flows."
 readme = "README.md"
 requires-python = ">=3.10"
