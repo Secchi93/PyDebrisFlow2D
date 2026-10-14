@@ -67,4 +67,4 @@ from .physics import (
 )
 from .simulation import run_solver
 
-__version__ = "1.4.0"
+__version__ = "1.0.0"
