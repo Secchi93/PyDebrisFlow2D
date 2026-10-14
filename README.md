@@ -583,7 +583,7 @@ Software citation metadata are provided in:
 CITATION.cff
 ```
 
-The current software metadata identify release **v1.4.0**.
+The current software metadata identify release **v1.0.0**.
 
 When using PyDebrisFlow2D in scientific work:
 
