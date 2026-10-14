@@ -8,7 +8,7 @@
 ![License](https://img.shields.io/badge/License-Apache%202.0-D22128?logo=apache&logoColor=white)
 ![CPU](https://img.shields.io/badge/Backend-CPU-555555)
 ![CUDA](https://img.shields.io/badge/Backend-CUDA-76B900?logo=nvidia&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.4.0-2F80ED)
+![Version](https://img.shields.io/badge/version-1.0.0-2F80ED)
 ![Status](https://img.shields.io/badge/status-research%20software-7B2CBF)
 
 </div>
